@@ -13,6 +13,10 @@ import json
 import sys
 import time
 
+from dotenv import load_dotenv
+
+load_dotenv()  # picks up .env (e.g. GROQ_API_KEY) if present; a real env var always wins
+
 from src.artifact import store
 from src.artifact.recorder import build_capability
 from src.artifact.schema import Checkpoint, InputParam

@@ -20,10 +20,14 @@ python -m playwright install chromium
 ```
 
 You need a [Groq](https://console.groq.com/) API key for the discovery step only
-(replay never calls an LLM):
+(replay never calls an LLM). Either export it, or copy `.env.example` to `.env`
+and fill it in (`python-dotenv` auto-loads it — real environment variables
+always take precedence over `.env`):
 
 ```bash
-export GROQ_API_KEY=sk-...
+cp .env.example .env   # then edit .env
+# or:
+export GROQ_API_KEY=gsk_...
 ```
 
 Run the tests (no key, no network, no LLM required):

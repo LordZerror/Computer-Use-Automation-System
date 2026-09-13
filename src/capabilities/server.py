@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import uuid
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+
+load_dotenv()  # in case this is launched directly via uvicorn, bypassing cli.py's own load_dotenv()
 
 from src.capabilities.catalog import list_capabilities, to_tool_spec
 from src.replay.executor import replay
