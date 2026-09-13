@@ -1,0 +1,7 @@
+{"ts": "2026-09-13T22:28:32.640274+00:00", "event": "discovery_start", "goal": "Log in with the given username and password and confirm you reached the secure area.", "target": "https://the-internet.herokuapp.com/login"}
+{"ts": "2026-09-13T22:28:38.938784+00:00", "event": "llm_decision", "step": 0, "tool": "type", "args": {"element_index": 0, "param_name": "username", "text": "tomsmith"}}
+{"ts": "2026-09-13T22:28:40.261203+00:00", "event": "llm_decision", "step": 1, "tool": "type", "args": {"element_index": 1, "param_name": "password", "text": "***REDACTED***"}}
+{"ts": "2026-09-13T22:28:41.231477+00:00", "event": "llm_decision", "step": 2, "tool": "click", "args": {"element_index": 2}}
+{"ts": "2026-09-13T22:28:43.620639+00:00", "event": "llm_decision", "step": 3, "tool": "finish", "args": {"summary": "Logged in and reached the secure area page"}}
+{"ts": "2026-09-13T22:28:43.621132+00:00", "event": "finished", "summary": "Logged in and reached the secure area page"}
+{"ts": "2026-09-13T22:28:43.864818+00:00", "event": "discovery_end", "success": true, "steps_recorded": 3}

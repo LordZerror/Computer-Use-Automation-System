@@ -1,0 +1,5 @@
+{"ts": "2026-09-13T22:30:13.216623+00:00", "event": "replay_start", "capability": "herokuapp_login", "params": {"username": "tomsmith", "password": "***REDACTED***"}}
+{"ts": "2026-09-13T22:30:17.519082+00:00", "event": "step_executed", "step_id": "step_0", "action": "type", "value": "tomsmith"}
+{"ts": "2026-09-13T22:30:18.399103+00:00", "event": "step_executed", "step_id": "step_1", "action": "type", "value": "***REDACTED***"}
+{"ts": "2026-09-13T22:30:20.363549+00:00", "event": "step_executed", "step_id": "step_2", "action": "click", "value": null}
+{"ts": "2026-09-13T22:30:20.483973+00:00", "event": "business_outcome", "code": "invalid_login", "message": "Your password is invalid!\n\u00d7"}

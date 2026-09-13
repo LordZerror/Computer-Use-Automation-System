@@ -6,6 +6,11 @@
 allowed_domains:
   - www.saucedemo.com
   - saucedemo.com
+  # Added to demonstrate the system isn't saucedemo-specific (see README's
+  # "Portability check").
+  - www.automationexercise.com
+  - automationexercise.com
+  - the-internet.herokuapp.com
 
 # Action types the agent/replay is permitted to perform at all.
 allowed_action_types:

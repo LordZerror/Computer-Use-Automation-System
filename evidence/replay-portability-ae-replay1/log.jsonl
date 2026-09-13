@@ -1,0 +1,5 @@
+{"ts": "2026-09-13T22:42:21.430036+00:00", "event": "replay_start", "capability": "automationexercise_add_to_cart", "params": {}}
+{"ts": "2026-09-13T22:42:29.649756+00:00", "event": "step_executed", "step_id": "step_0", "action": "click", "value": null}
+{"ts": "2026-09-13T22:42:32.297110+00:00", "event": "step_executed", "step_id": "step_1", "action": "click", "value": null}
+{"ts": "2026-09-13T22:42:32.861295+00:00", "event": "step_executed", "step_id": "step_2", "action": "click", "value": null}
+{"ts": "2026-09-13T22:42:32.876907+00:00", "event": "replay_success", "outputs": {}}

@@ -38,9 +38,22 @@ _COLLECT_JS = """
     return style.visibility !== 'hidden' && style.display !== 'none';
   }
 
+  function associatedLabelText(el) {
+    // Standard <label for="id">Text</label> association -- how a screen
+    // reader (and a sighted user) actually names a plain form field with no
+    // aria-label/placeholder. Missing this is exactly the "assumes clean
+    // markup" failure mode Section 3.1 warns against.
+    if (el.id) {
+      const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (label) return label.innerText;
+    }
+    return el.closest('label')?.innerText || null;
+  }
+
   function accessibleName(el) {
     return (
       el.getAttribute('aria-label') ||
+      associatedLabelText(el) ||
       el.innerText ||
       el.getAttribute('placeholder') ||
       el.value ||

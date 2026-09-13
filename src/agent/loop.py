@@ -86,6 +86,8 @@ def run_discovery(
     start = time.time()
     success = False
     summary = ""
+    last_failed_signature: tuple | None = None
+    consecutive_identical_failures = 0
 
     logger.log({"event": "discovery_start", "goal": goal, "target": target_url})
 
@@ -95,6 +97,12 @@ def run_discovery(
         # model's coordinate grounding -- worth controlling per-target rather
         # than always taking Playwright's default.
         page = browser.new_page(viewport={"width": viewport[0], "height": viewport[1]} if viewport else None)
+        # Discovery should fail fast on a wrong guess (Playwright's 30s
+        # default actionability wait means one bad element_index burns 30
+        # real seconds -- observed live against automationexercise.com,
+        # three wrong guesses in a row cost 90s for nothing). A replay of an
+        # already-verified artifact keeps the normal default (replay/executor.py).
+        page.set_default_timeout(5000)
         page.goto(target_url)
         _settle(page)
 
@@ -137,79 +145,115 @@ def run_discovery(
 
             step_id = f"step_{len(transcript)}"
 
-            if call.name == "click_at":
-                x, y, label = call.arguments["x"], call.arguments["y"], call.arguments.get("label", "")
-                risk = policy.classify_risk(label)
-                if risk == "risky":
-                    history.append(f"[BLOCKED click on risky/irreversible control '{label}' by policy -- do not retry it.]")
-                    logger.log({"event": "policy_blocked_risky", "control": label})
+            try:
+                if call.name == "click_at":
+                    x, y, label = call.arguments["x"], call.arguments["y"], call.arguments.get("label", "")
+                    risk = policy.classify_risk(label)
+                    if risk == "risky":
+                        history.append(f"[BLOCKED click on risky/irreversible control '{label}' by policy -- do not retry it.]")
+                        logger.log({"event": "policy_blocked_risky", "control": label})
+                        continue
+                    page.mouse.click(x, y)
+                    _settle(page)
+                    transcript.append({"step_id": step_id, "action": "click", "coordinates": {"x": x, "y": y}, "label": label, "risk": risk})
+                    history.append(f"clicked at ({x}, {y}) [{label}]")
                     continue
-                page.mouse.click(x, y)
-                _settle(page)
-                transcript.append({"step_id": step_id, "action": "click", "coordinates": {"x": x, "y": y}, "label": label, "risk": risk})
-                history.append(f"clicked at ({x}, {y}) [{label}]")
-                continue
 
-            if call.name == "type_at":
-                x, y, text, label = call.arguments["x"], call.arguments["y"], call.arguments["text"], call.arguments.get("label", "")
-                page.mouse.click(x, y)
-                page.keyboard.type(text)
-                _settle(page)
-                transcript.append({"step_id": step_id, "action": "type", "coordinates": {"x": x, "y": y}, "value": text, "label": label})
-                history.append(f"typed '{text}' at ({x}, {y}) [{label}]")
-                continue
-
-            if call.name in ("click", "type", "extract"):
-                idx = call.arguments.get("element_index", -1)
-                if not (0 <= idx < len(elements)):
-                    history.append(f"[invalid element index {idx}, ignored]")
+                if call.name == "type_at":
+                    x, y, text, label = call.arguments["x"], call.arguments["y"], call.arguments["text"], call.arguments.get("label", "")
+                    page.mouse.click(x, y)
+                    page.keyboard.type(text)
+                    _settle(page)
+                    transcript.append({"step_id": step_id, "action": "type", "coordinates": {"x": x, "y": y}, "value": text, "label": label})
+                    history.append(f"typed '{text}' at ({x}, {y}) [{label}]")
                     continue
-                element = elements[idx]
-            else:
-                element = None
 
-            if call.name == "click":
-                risk = policy.classify_risk(element["name"])
-                if risk == "risky":
-                    history.append(
-                        f"[BLOCKED click on risky/irreversible control '{element['name']}' by policy -- "
-                        "do not retry it. If the stated goal is already satisfied, call finish now.]"
-                    )
-                    logger.log({"event": "policy_blocked_risky", "control": element["name"]})
-                    continue
-                _locator_from_element(page, element).click()
-                _settle(page)
-                transcript.append({"step_id": step_id, "action": "click", "element": element, "risk": risk})
-                history.append(f"clicked [{idx}] {element['role']} \"{element['name']}\"")
+                if call.name in ("click", "type", "extract"):
+                    idx = call.arguments.get("element_index", -1)
+                    if not (0 <= idx < len(elements)):
+                        history.append(f"[invalid element index {idx}, ignored]")
+                        continue
+                    element = elements[idx]
+                else:
+                    element = None
 
-            elif call.name == "type":
-                text = call.arguments["text"]
-                param_name = call.arguments.get("param_name")
-                _locator_from_element(page, element).fill(text)
-                _settle(page)
-                transcript.append({
-                    "step_id": step_id, "action": "type", "element": element,
-                    "value": text, "param_name": param_name,
-                })
-                logged = "***REDACTED***" if param_name in sensitive_params else text
-                history.append(f"typed '{logged}' into [{idx}] {element['name']}")
+                if call.name == "click":
+                    risk = policy.classify_risk(element["name"])
+                    if risk == "risky":
+                        history.append(
+                            f"[BLOCKED click on risky/irreversible control '{element['name']}' by policy -- "
+                            "do not retry it. If the stated goal is already satisfied, call finish now.]"
+                        )
+                        logger.log({"event": "policy_blocked_risky", "control": element["name"]})
+                        continue
+                    _locator_from_element(page, element).click()
+                    _settle(page)
+                    transcript.append({"step_id": step_id, "action": "click", "element": element, "risk": risk})
+                    history.append(f"clicked [{idx}] {element['role']} \"{element['name']}\"")
 
-            elif call.name == "navigate":
-                url = call.arguments["url"]
-                policy.check_domain(url)
-                page.goto(url)
-                _settle(page)
-                transcript.append({"step_id": step_id, "action": "navigate", "value": url})
-                history.append(f"navigated to {url}")
+                elif call.name == "type":
+                    text = call.arguments["text"]
+                    param_name = call.arguments.get("param_name")
+                    _locator_from_element(page, element).fill(text)
+                    _settle(page)
+                    transcript.append({
+                        "step_id": step_id, "action": "type", "element": element,
+                        "value": text, "param_name": param_name,
+                    })
+                    logged = "***REDACTED***" if param_name in sensitive_params else text
+                    history.append(f"typed '{logged}' into [{idx}] {element['name']}")
 
-            elif call.name == "extract":
-                output_name = call.arguments["output_name"]
-                value = _locator_from_element(page, element).inner_text().strip()
-                outputs[output_name] = value
-                transcript.append({
-                    "step_id": step_id, "action": "extract", "element": element, "output_name": output_name,
-                })
-                history.append(f"extracted {output_name}='{value}' from [{idx}] {element['name']}")
+                elif call.name == "navigate":
+                    url = call.arguments["url"]
+                    policy.check_domain(url)
+                    page.goto(url)
+                    _settle(page)
+                    transcript.append({"step_id": step_id, "action": "navigate", "value": url})
+                    history.append(f"navigated to {url}")
+
+                elif call.name == "extract":
+                    output_name = call.arguments["output_name"]
+                    value = _locator_from_element(page, element).inner_text().strip()
+                    outputs[output_name] = value
+                    transcript.append({
+                        "step_id": step_id, "action": "extract", "element": element, "output_name": output_name,
+                    })
+                    history.append(f"extracted {output_name}='{value}' from [{idx}] {element['name']}")
+
+            except Exception as e:
+                # A live surface can make any action throw (a modal
+                # intercepting a click, a detached/stale element, a
+                # navigation timeout) -- this is "transient slowness"/"dead
+                # end" territory (Section 1), not a reason to crash the whole
+                # discovery run. Surface it to the model as feedback instead.
+                short_error = str(e).splitlines()[0][:200]
+                history.append(f"[action {call.name} failed: {short_error} -- try a different approach]")
+                logger.log({"event": "action_failed", "tool": call.name, "error": short_error})
+
+                # Observed live: the model doesn't reliably follow its own
+                # "don't retry a failed action" instruction and can loop on
+                # the exact same failing call. Don't trust that judgment
+                # call to the model alone -- this is precisely the "repeated
+                # the same action with no progress" stuck-state Section 3.6
+                # asks us to detect, so enforce it rather than hope for it.
+                signature = (call.name, tuple(sorted(call.arguments.items())))
+                consecutive_identical_failures = (
+                    consecutive_identical_failures + 1 if signature == last_failed_signature else 1
+                )
+                last_failed_signature = signature
+                if consecutive_identical_failures >= 2:
+                    reason = f"repeated the identical failing action ({call.name}) {consecutive_identical_failures}x in a row"
+                    if headless:
+                        # No human is watching a headless run to hand control
+                        # to -- escalate()'s input() prompt would just hang.
+                        # Stop as a dead-end instead of pretending to escalate.
+                        logger.log({"event": "stopped", "reason": f"dead_end: {reason}"})
+                    else:
+                        note = escalate(logger, page, goal, step_id, reason)
+                        history.append(f"[human intervened: {note}]")
+                        consecutive_identical_failures = 0
+                        continue
+                    break
 
         logger.screenshot(page, "final")
         browser.close()

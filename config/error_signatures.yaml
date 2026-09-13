@@ -10,6 +10,7 @@
 error_selectors:
   - '[data-test="error"]'
   - ".error-message-container"
+  - "#flash"                # the-internet.herokuapp.com's flash-message pattern
 
 # First matching substring (case-insensitive) wins. `category` decides how
 # the executor responds:
@@ -27,6 +28,9 @@ patterns:
     category: business_outcome
   - match: "no such"
     code: not_found
+    category: business_outcome
+  - match: "is invalid"
+    code: invalid_login
     category: business_outcome
 
 # Any error text that matches a selector above but no pattern falls

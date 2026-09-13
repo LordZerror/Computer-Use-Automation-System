@@ -1,0 +1,5 @@
+{"ts": "2026-09-13T22:28:52.025961+00:00", "event": "replay_start", "capability": "herokuapp_login", "params": {"username": "tomsmith", "password": "***REDACTED***"}}
+{"ts": "2026-09-13T22:28:57.082711+00:00", "event": "step_executed", "step_id": "step_0", "action": "type", "value": "tomsmith"}
+{"ts": "2026-09-13T22:28:57.690807+00:00", "event": "step_executed", "step_id": "step_1", "action": "type", "value": "***REDACTED***"}
+{"ts": "2026-09-13T22:28:58.991771+00:00", "event": "step_executed", "step_id": "step_2", "action": "click", "value": null}
+{"ts": "2026-09-13T22:28:59.022227+00:00", "event": "replay_success", "outputs": {}}

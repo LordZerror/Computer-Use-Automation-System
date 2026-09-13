@@ -171,6 +171,50 @@ a vendor-side markup change shipped and the base artifact (or a specific
 tenant's override) needs attention — this is a monitoring policy on top of the
 existing `ReplayResult`/evidence log, not a new subsystem.
 
+**Portability check, done rather than just argued.** To test whether the
+above is real, the same unmodified pipeline (only `config/allowlist.yaml` and
+`config/error_signatures.yaml` were extended, exactly as §4 predicts a
+cross-tenant deployment would) was pointed at two more public sites, neither
+seen during development:
+
+- `automationexercise.com` (a different e-commerce vendor's checkout flow) —
+  `artifacts/automationexercise_add_to_cart.json`,
+  `evidence/discovery-portability-ae1/`,
+  `evidence/replay-portability-ae-replay1/`.
+- `the-internet.herokuapp.com/login` (a plain server-rendered login form,
+  test-id-free) — `artifacts/herokuapp_login.json`,
+  `evidence/discovery-portability-heroku1/`, plus a genuine cross-site
+  `business_outcome` (`invalid_login`) once `#flash` and an `"is invalid"`
+  pattern were added to `error_signatures.yaml` —
+  `evidence/replay-portability-heroku-replay-bad/`.
+
+This surfaced three real bugs the saucedemo-only development had never hit,
+each fixed and covered by a test rather than special-cased for one site:
+
+1. **Accessible-name gap**: herokuapp's login fields have no
+   `aria-label`/placeholder, only a standard `<label for="id">` —
+   `accessibleName()` didn't check label association at all
+   (`tests/test_perceive.py`).
+2. **Discovery could crash outright**: a Bootstrap modal intercepting a click
+   on automationexercise.com threw a Playwright timeout that propagated all
+   the way out of `run_discovery` and killed the process — replay already
+   guaranteed it would never crash its caller, discovery didn't
+   (`tests/test_agent_loop_robustness.py`; also dropped the default
+   actionability timeout from 30s to 5s for discovery specifically, so one
+   wrong guess doesn't cost 30 real seconds).
+3. **The model doesn't reliably self-escalate on repetition**: despite the
+   system prompt explicitly saying "don't retry a failed action," it retried
+   an identical failing click 8 times in a row on one attempt. Section 3.6's
+   own "repeated the same action with no progress" stuck-state is now
+   detected in code (2 identical consecutive failures) rather than trusted to
+   model judgment — escalates to a human when a person is watching
+   (non-headless), stops as a dead end otherwise
+   (`tests/test_agent_loop_robustness.py`).
+
+None of these are saucedemo-specific patches — they're gaps in the generic
+DOM-walking/loop-control code, which is exactly what a real second tenant
+onboarding should be expected to surface and fix once, centrally.
+
 ## 5. Escalation & handoff
 
 `src/escalation/manager.py`. "Stuck" is detected in two places: the agent

@@ -1,0 +1,172 @@
+{
+  "id": "herokuapp_login",
+  "name": "herokuapp_login",
+  "version": "1.0.0",
+  "goal": "Log in with the given username and password and confirm you reached the secure area.",
+  "target": {
+    "base_url": "https://the-internet.herokuapp.com/login",
+    "app_id": "the-internet-login"
+  },
+  "input_params": [
+    {
+      "name": "username",
+      "type": "string",
+      "required": true,
+      "description": "",
+      "sensitive": false
+    },
+    {
+      "name": "password",
+      "type": "string",
+      "required": true,
+      "description": "",
+      "sensitive": true
+    }
+  ],
+  "steps": [
+    {
+      "step_id": "step_0",
+      "action": "type",
+      "locators": [
+        {
+          "kind": "role",
+          "role": "textbox",
+          "name": "Username",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Username",
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > form > div:nth-of-type(1) > div > input",
+          "xpath": null,
+          "x": null,
+          "y": null
+        }
+      ],
+      "value": null,
+      "param_ref": "username",
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via role (role + accessible name mirrors how a screen reader would find this control); recorded 3 fallback strategies."
+    },
+    {
+      "step_id": "step_1",
+      "action": "type",
+      "locators": [
+        {
+          "kind": "role",
+          "role": "textbox",
+          "name": "Password",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Password",
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > form > div:nth-of-type(2) > div > input",
+          "xpath": null,
+          "x": null,
+          "y": null
+        }
+      ],
+      "value": null,
+      "param_ref": "password",
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via role (role + accessible name mirrors how a screen reader would find this control); recorded 3 fallback strategies."
+    },
+    {
+      "step_id": "step_2",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "role",
+          "role": "button",
+          "name": "Login",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Login",
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div:nth-of-type(2) > div > div > form > button",
+          "xpath": null,
+          "x": null,
+          "y": null
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via role (role + accessible name mirrors how a screen reader would find this control); recorded 3 fallback strategies."
+    }
+  ],
+  "output_spec": [],
+  "checkpoint": {
+    "kind": "text_present",
+    "pattern": null,
+    "text": "You logged into a secure area",
+    "locator": null
+  },
+  "created_from_run_id": "portability-heroku1",
+  "created_at": "2026-09-13T22:28:43.865649Z",
+  "status": "draft",
+  "stability_score": null,
+  "stability_sample_size": 0
+}

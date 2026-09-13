@@ -141,6 +141,31 @@ python -m src.cli discover \
 python -m src.cli replay --artifact artifacts/click_canvas_button.json --run-id vision-replay1
 ```
 
+## Portability check
+
+The pipeline is not saucedemo-specific. The same code, pointed at two more
+public sites never seen during development (only `config/allowlist.yaml` +
+`config/error_signatures.yaml` extended, as REPORT.md §4 says a real
+cross-tenant deployment would), produced genuine artifacts and evidence —
+see REPORT.md §4 for the three real bugs this surfaced and fixed:
+
+```bash
+python -m src.cli discover \
+  --goal "Log in with the given username and password and confirm you reached the secure area." \
+  --target-url https://the-internet.herokuapp.com/login \
+  --params username=tomsmith password="SuperSecretPassword!" --sensitive password \
+  --app-id the-internet-login --capability-id herokuapp_login \
+  --checkpoint-kind text_present --checkpoint-text "You logged into a secure area" \
+  --headless --run-id portability-heroku1
+
+python -m src.cli discover \
+  --goal "Add this product to the cart, view the cart, then click 'Proceed To Checkout' exactly once. As soon as you see a 'Register / Login' link and a 'Continue On Cart' button appear, the goal is complete -- call finish immediately. Do not click 'Proceed To Checkout' more than once, and do not click 'Register / Login'." \
+  --target-url https://www.automationexercise.com/product_details/1 \
+  --app-id automationexercise --capability-id automationexercise_add_to_cart \
+  --checkpoint-kind text_present --checkpoint-text "Register / Login account to proceed on checkout" \
+  --headless --run-id portability-ae1
+```
+
 ## Running without live services
 
 `pytest tests/` runs fully offline (Chromium + `page.set_content`, no network, no
