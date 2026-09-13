@@ -103,6 +103,26 @@ just empty until an error occurs. Matching on selector-present instead of
 selector-present-with-content would have classified every successful run as a
 failure.
 
+**Assisted fallback (Section 8 stretch goal), the one narrow exception to "no
+LLM in replay":** `src/replay/fallback.py`. When a step's `HardFailure` comes
+from every recorded locator strategy failing to resolve, and only when
+`--allow-assisted-fallback` is passed, replay allows exactly **one** bounded
+Groq call: the model sees the step's `description` and its now-broken
+recorded locators, a fresh perception snapshot, and a two-tool schema —
+`pick_element(index)` or `none_found()` — nothing else. It is never asked
+what to do, only which currently-visible element matches a step whose action
+is already fixed, so it cannot invent a new action, navigate, or loop. A
+recovered element still goes through the same risk classification a normal
+click would (`test_recovered_risky_element_is_blocked_not_executed`), and the
+whole exchange is logged as evidence
+(`assisted_fallback_attempted`/`_recovered`/`_declined_risky`/`_not_found`).
+Demonstrated live: a copy of the real artifact with one step's locators
+deliberately corrupted (`add_to_cart_checkout__fault_demo.json`, name flags
+it as a fault-injection copy, not the canonical capability) fails normally
+and recovers correctly with the flag — see `evidence/replay-fallback-*/`. Unit
+tests stub the Groq response so the suite stays offline
+(`tests/test_replay_fallback.py`).
+
 ## 4. Heterogeneity & multi-tenant
 
 **Surface abstraction.** The seam is `perceive.py` (produces a normalized
@@ -197,7 +217,7 @@ Section 8, not built here).
 
 - **Screenshot/coordinate vision fallback**: implemented
   (`perceive.screenshot_fallback`) but not wired into the live loop — Groq's
-  `llama-3.3-70b-versatile` is text-only. The seam exists (perception returns
+  `openai/gpt-oss-120b` is text-only. The seam exists (perception returns
   an empty element list → today that escalates to a human; a vision-capable
   model would instead receive the screenshot and reply with coordinates).
 - **Recoverable-condition path**: the code and one unit test exist
@@ -212,10 +232,13 @@ Section 8, not built here).
 - **Operator console UI**: a CLI prompt over the same live browser window
   stands in for a real console, per the brief's own scope note (§5 above).
 - **Stretch goals not attempted**: confidence/approval scoring, code
-  generation from an artifact, and multi-run stability sampling. The one
-  stretch goal built is the agent-facing capability API
-  (`src/capabilities/`), since it most directly demonstrates the "artifact =
-  reusable capability" framing the brief centers on.
+  generation from an artifact, canonicalization/cross-tenant reuse, and
+  multi-run stability sampling. Two were built instead: the agent-facing
+  capability API (`src/capabilities/`), since it most directly demonstrates
+  the "artifact = reusable capability" framing the brief centers on; and
+  assisted fallback on replay failure (`src/replay/fallback.py`, §3 above),
+  since it's the stretch goal that most directly exercises the error-handling
+  and safety machinery already built rather than adding a new subsystem.
 
 **Next with more time**: wire a vision-capable model behind the same
 `perceive.py` seam for the fallback path; add the per-tenant override

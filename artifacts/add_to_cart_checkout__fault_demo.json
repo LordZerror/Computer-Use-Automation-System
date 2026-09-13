@@ -1,0 +1,545 @@
+{
+  "id": "add_to_cart_checkout__fault_demo",
+  "name": "add_to_cart_checkout__fault_demo",
+  "version": "1.0.0",
+  "goal": "Log in, add the Sauce Labs Backpack to the cart, fill out checkout with the given name/zip, continue to the checkout overview page, and report the order total shown there.",
+  "target": {
+    "base_url": "https://www.saucedemo.com/",
+    "app_id": "saucedemo"
+  },
+  "input_params": [
+    {
+      "name": "username",
+      "type": "string",
+      "required": true,
+      "description": "",
+      "sensitive": false
+    },
+    {
+      "name": "password",
+      "type": "string",
+      "required": true,
+      "description": "",
+      "sensitive": true
+    },
+    {
+      "name": "first_name",
+      "type": "string",
+      "required": true,
+      "description": "",
+      "sensitive": false
+    },
+    {
+      "name": "last_name",
+      "type": "string",
+      "required": true,
+      "description": "",
+      "sensitive": false
+    },
+    {
+      "name": "zip_code",
+      "type": "string",
+      "required": true,
+      "description": "",
+      "sensitive": false
+    }
+  ],
+  "steps": [
+    {
+      "step_id": "step_0",
+      "action": "type",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "username",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "textbox",
+          "name": "Username",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Username",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > div > form > div:nth-of-type(1) > input",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": "username",
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_1",
+      "action": "type",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "password",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "textbox",
+          "name": "Password",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Password",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > div > form > div:nth-of-type(2) > input",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": "password",
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_2",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "login-button",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "button",
+          "name": "Login",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Login",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div:nth-of-type(1) > div > div > form > input",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_3",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "stale-test-id-does-not-exist",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "button",
+          "name": "Nonexistent Button Name",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Nonexistent Button Name",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": ".this-css-path-no-longer-exists",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "DEMO FAULT INJECTION for assisted-fallback: click the \"Add to cart\" control specifically for the Sauce Labs Backpack product (not any other product's Add to cart button). All recorded locator strategies below have been deliberately corrupted to simulate a vendor UI change that broke every one of them, so normal replay cannot resolve this step -- only assisted fallback can."
+    },
+    {
+      "step_id": "step_4",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "shopping-cart-link",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "button",
+          "name": "Cart, 1 items",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Cart, 1 items",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > header > div:nth-of-type(1) > div:nth-of-type(3) > a",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_5",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "checkout",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "button",
+          "name": "Checkout",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Checkout",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > div > div > div:nth-of-type(2) > button:nth-of-type(2)",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_6",
+      "action": "type",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "firstName",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "textbox",
+          "name": "First Name",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "First Name",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > form > div:nth-of-type(1) > div:nth-of-type(1) > input",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": "first_name",
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_7",
+      "action": "type",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "lastName",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "textbox",
+          "name": "Last Name",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Last Name",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > form > div:nth-of-type(1) > div:nth-of-type(2) > input",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": "last_name",
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_8",
+      "action": "type",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "postalCode",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "textbox",
+          "name": "Zip/Postal Code",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Zip/Postal Code",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > form > div:nth-of-type(1) > div:nth-of-type(3) > input",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": "zip_code",
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    },
+    {
+      "step_id": "step_9",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "test_id",
+          "role": null,
+          "name": null,
+          "test_id": "continue",
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "role",
+          "role": "button",
+          "name": "Continue",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Continue",
+          "css": null,
+          "xpath": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div > div > form > div:nth-of-type(2) > input",
+          "xpath": null
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via test_id (test id is the most stable identifier available); recorded 4 fallback strategies."
+    }
+  ],
+  "output_spec": [
+    {
+      "name": "order_total",
+      "type": "string",
+      "description": "Extracted from text \"Total: $32.39\" at discovery time.",
+      "source_step_id": "step_10",
+      "extract": {
+        "kind": "test_id",
+        "role": null,
+        "name": null,
+        "test_id": "total-label",
+        "text": null,
+        "css": null,
+        "xpath": null
+      },
+      "attribute": "text"
+    }
+  ],
+  "checkpoint": {
+    "kind": "text_present",
+    "pattern": null,
+    "text": "Checkout: Overview",
+    "locator": null
+  },
+  "created_from_run_id": "discovery1",
+  "created_at": "2026-09-13T11:27:54.080868Z"
+}

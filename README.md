@@ -38,19 +38,19 @@ pytest tests/ -q
 
 ```bash
 python -m src.cli discover \
-  --goal "Log in, add the Sauce Labs Backpack to the cart, fill out checkout with the given name/zip, and reach the checkout overview page." \
+  --goal "Log in, add the Sauce Labs Backpack to the cart, fill out checkout with the given name/zip, continue to the checkout overview page, and report the order total shown there." \
   --target-url https://www.saucedemo.com/ \
   --params username=standard_user password=secret_sauce first_name=John last_name=Doe zip_code=94107 \
   --sensitive password \
   --app-id saucedemo \
   --capability-id add_to_cart_checkout \
   --checkpoint-kind text_present --checkpoint-text "Checkout: Overview" \
-  --run-id discovery1
+  --max-steps 18 --headless --run-id discovery1
 ```
 
-This opens a real (visible) browser window, runs the agent loop, and on success
-writes `artifacts/add_to_cart_checkout.json` plus a full log + screenshots to
-`evidence/discovery-discovery1/`.
+Drop `--headless` if you'd rather watch the browser drive itself. On success this writes
+`artifacts/add_to_cart_checkout.json` (with an `order_total` output) plus a full
+log + a screenshot to `evidence/discovery-discovery1/`.
 
 **2. Replay** — deterministic, no LLM, using the saved artifact:
 
@@ -76,7 +76,23 @@ python -m src.cli replay \
 
 Returns `{"status": "business_outcome", "outcome_code": "invalid_login", ...}`.
 
-**4. Stretch goal — agent-facing capability API:**
+**4. Assisted fallback (stretch goal)** — replay a copy of the artifact with
+one step's locators deliberately corrupted (simulating a vendor UI change
+that broke every recorded strategy for that step); without the flag it fails
+at that step, with the flag a single bounded, policy-checked LLM call
+recovers it:
+
+```bash
+python -m src.cli replay --artifact artifacts/add_to_cart_checkout__fault_demo.json \
+  --params username=standard_user password=secret_sauce first_name=John last_name=Doe zip_code=94107 \
+  --run-id fallback-without-flag   # -> failure at step_3
+
+python -m src.cli replay --artifact artifacts/add_to_cart_checkout__fault_demo.json \
+  --params username=standard_user password=secret_sauce first_name=John last_name=Doe zip_code=94107 \
+  --allow-assisted-fallback --run-id fallback-with-flag   # -> success, recovers step_3
+```
+
+**5. Stretch goal — agent-facing capability API:**
 
 ```bash
 python -m src.cli serve
@@ -89,15 +105,17 @@ curl -X POST http://localhost:8000/capabilities/add_to_cart_checkout/invoke \
 ## Running without live services
 
 `pytest tests/` runs fully offline (Chromium + `page.set_content`, no network, no
-LLM). `replay` needs network access to the target site but never calls Groq;
-`discover` needs both network and `GROQ_API_KEY`.
+LLM). `replay` needs network access to the target site but never calls Groq
+unless you pass `--allow-assisted-fallback` (only exercised on a step that
+already failed). `discover` needs both network and `GROQ_API_KEY`.
 
 ## Project layout
 
 ```
 src/agent/        perception (a11y-tree snapshot) + Groq tool-calling loop
 src/artifact/      capability schema, recorder (transcript -> artifact), store
-src/replay/        deterministic executor, ranked locator resolution, error taxonomy
+src/replay/        deterministic executor, ranked locator resolution, error taxonomy,
+                   bounded assisted-fallback recovery (stretch goal)
 src/safety/        allowlist, risk classification, redaction
 src/escalation/    human-in-the-loop pause / live handoff / resume
 src/evidence/      structured JSONL logging + screenshots

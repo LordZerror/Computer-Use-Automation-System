@@ -78,6 +78,7 @@ def cmd_replay(args: argparse.Namespace) -> int:
         capability, params, run_id,
         headless=not args.visible,
         allow_escalation=args.allow_escalation,
+        allow_assisted_fallback=args.allow_assisted_fallback,
     )
     print(json.dumps(result.model_dump(), indent=2, default=str))
     print(f"Evidence -> evidence/replay-{run_id}/", file=sys.stderr)
@@ -115,6 +116,7 @@ def main() -> int:
     r.add_argument("--params", nargs="*", default=[])
     r.add_argument("--visible", action="store_true", help="show the browser window instead of running headless")
     r.add_argument("--allow-escalation", action="store_true", help="pause for human handoff on a hard failure instead of returning it immediately")
+    r.add_argument("--allow-assisted-fallback", action="store_true", help="on a hard failure, try one bounded, policy-checked LLM recovery for that step before escalation/failure (needs GROQ_API_KEY)")
     r.add_argument("--run-id", default=None)
     r.set_defaults(func=cmd_replay)
 

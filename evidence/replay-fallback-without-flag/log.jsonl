@@ -1,0 +1,5 @@
+{"ts": "2026-09-13T11:31:57.403514+00:00", "event": "replay_start", "capability": "add_to_cart_checkout__fault_demo", "params": {"username": "standard_user", "password": "***REDACTED***", "first_name": "John", "last_name": "Doe", "zip_code": "94107"}}
+{"ts": "2026-09-13T11:32:01.776186+00:00", "event": "step_executed", "step_id": "step_0", "action": "type", "value": "standard_user"}
+{"ts": "2026-09-13T11:32:02.360349+00:00", "event": "step_executed", "step_id": "step_1", "action": "type", "value": "***REDACTED***"}
+{"ts": "2026-09-13T11:32:02.984250+00:00", "event": "step_executed", "step_id": "step_2", "action": "click", "value": null}
+{"ts": "2026-09-13T11:32:03.076747+00:00", "event": "failure", "step_id": "step_3", "expected": "one of locator strategies ['test_id', 'role', 'text', 'css'] to resolve to a visible element", "observed": "no strategy matched a visible element"}

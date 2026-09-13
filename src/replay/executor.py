@@ -14,6 +14,7 @@ from playwright.sync_api import Page, sync_playwright
 from src.artifact.schema import Capability, Checkpoint
 from src.escalation.manager import escalate
 from src.evidence.logger import EvidenceLogger
+from src.replay import fallback
 from src.replay.errors import BusinessOutcome, HardFailure, ReplayResult, load_error_signatures
 from src.replay.locator import resolve
 from src.safety.policy import load_policy
@@ -75,6 +76,7 @@ def replay(
     run_id: str,
     headless: bool = True,
     allow_escalation: bool = False,
+    allow_assisted_fallback: bool = False,
 ) -> ReplayResult:
     policy = load_policy()
     error_sigs = load_error_signatures()
@@ -106,10 +108,18 @@ def replay(
                 try:
                     _execute_step(page, step, params, policy)
                 except HardFailure as e:
-                    if not allow_escalation:
-                        raise
-                    escalate(logger, page, capability.name, step.step_id, str(e))
-                    _execute_step(page, step, params, policy)  # one retry after human handoff
+                    recovered = False
+                    if allow_assisted_fallback:
+                        try:
+                            fallback.recover(page, step, params, policy, logger)
+                            recovered = True
+                        except HardFailure:
+                            pass  # bounded to one attempt -- fall through to escalation/raise below
+                    if not recovered:
+                        if not allow_escalation:
+                            raise
+                        escalate(logger, page, capability.name, step.step_id, str(e))
+                        _execute_step(page, step, params, policy)  # one retry after human handoff
 
                 _settle(page)
                 if step.wait_after_ms:
