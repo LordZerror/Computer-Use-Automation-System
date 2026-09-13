@@ -26,11 +26,23 @@ Three pipeline stages, each independently testable:
    LLM entirely out of the loop, using the same locator vocabulary the
    recorder wrote down.
 
-Key trade-off: the agent loop is text-only (accessibility-tree-style
-perception), not screenshot+vision. This is deliberately biased toward "works
-with no clean DOM" (Section 3.1) — a role/name/test-id list survives table-based
-legacy layouts and frames far better than pixel coordinates do — at the cost of
-not handling canvas-rendered or image-only controls. See Cuts.
+Perception is hybrid, both halves genuinely exercised: accessibility-tree-style
+text (role/name/test-id) is the default and primary path — it survives
+table-based legacy layouts and frames far better than pixel coordinates do
+(Section 3.1's bias toward "works with no clean DOM"). When that returns zero
+elements (a canvas-rendered or otherwise DOM-less control), `loop.py` falls
+back to a screenshot handed to a vision+tool-calling model
+(`qwen/qwen3.8-27b` on Groq) that replies with pixel coordinates, with a
+labeled grid overlaid on the screenshot first — measured live to
+meaningfully improve this model's coordinate grounding, which otherwise
+estimates position from scale alone and gets it wrong. A vision-discovered
+step becomes an ordinary artifact step with a `coordinates` locator (see §2)
+— it isn't a parallel, second-class system. Demonstrated end-to-end against
+`fixtures/canvas_button.html` (a genuinely DOM-less surface, `perceive.snapshot()`
+returns `[]` on it — asserted by a test, not just assumed):
+`evidence/discovery-vision1/` (real vision-driven discovery) and
+`evidence/replay-vision-replay1/` (deterministic replay of the resulting
+artifact, no LLM call).
 
 ## 2. Artifact schema
 
@@ -39,11 +51,15 @@ not handling canvas-rendered or image-only controls. See Cuts.
 - `input_params`: typed, with a `sensitive` flag.
 - `steps`: ordered `navigate` / `click` / `type` actions. Each carries a
   **ranked list of locator strategies** (`test_id → role+accessible-name →
-  visible text → CSS path`), not a single selector — replay tries them in
-  order and only fails if none resolve. This is the single biggest
-  reliability lever available, and it's also the seam a legacy or desktop
-  surface would extend (see §4): the ranking vocabulary stays the same, only
-  how each strategy is *resolved* changes per surface.
+  visible text → CSS path → pixel coordinates`), not a single selector —
+  replay tries them in order and only fails if none resolve. This is the
+  single biggest reliability lever available, and it's also the seam a
+  legacy or desktop surface would extend (see §4): the ranking vocabulary
+  stays the same, only how each strategy is *resolved* changes per surface.
+  `coordinates` is the literal bottom rung — no DOM node exists at all, only
+  a pixel position from the vision fallback (§1/§3) — which is what makes a
+  vision-discovered step a first-class, replayable artifact step rather than
+  a separate, second-class mechanism bolted on beside the schema.
 - `output_spec`: declared outputs are resolved against **final page state**
   after all steps run and the checkpoint passes, each with its own locator —
   deliberately not "whatever `extract` steps happened to run," so the
@@ -233,11 +249,17 @@ step are approved the same way today.
 
 ## 7. Cuts
 
-- **Screenshot/coordinate vision fallback**: implemented
-  (`perceive.screenshot_fallback`) but not wired into the live loop — Groq's
-  `openai/gpt-oss-120b` is text-only. The seam exists (perception returns
-  an empty element list → today that escalates to a human; a vision-capable
-  model would instead receive the screenshot and reply with coordinates).
+- **Correction, not a cut**: an earlier version of this report claimed no
+  vision-capable model was available on the Groq account in use, and left
+  the screenshot/coordinate fallback unwired on that basis. That premise was
+  wrong — `qwen/qwen3.6-27b`/`qwen3.8-27b` are vision+tool-calling models
+  already visible to that key — and it's now wired and demonstrated live
+  (§1, §3). Also worth recording honestly: `qwen3.6-27b` turned out to
+  hallucinate a tiled/repeated layout on the small, mostly-white demo
+  screenshot and gave unreliable coordinates; `qwen3.8-27b` with a labeled
+  grid overlay did not have that problem. Model choice for a vision fallback
+  is not a solved default — it needs the same "verify against the live
+  surface" discipline as everything else in this project.
 - **Recoverable-condition path**: the code and one unit test exist
   (`dismissible_selectors`), but the demo target has no dismissible
   interstitial to exercise it live.

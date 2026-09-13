@@ -189,14 +189,23 @@ def _execute_step(page: Page, step, params: dict[str, str], policy) -> None:
     if step.action == "click":
         if step.risk == "risky":
             raise HardFailure(step.step_id, "a safe/allowed action", "step is classified risky and blocked by policy")
-        loc = resolve(page, step.locators, step.step_id)
-        loc.click()
+        coords = step.locators[0] if step.locators and step.locators[0].kind == "coordinates" else None
+        if coords:
+            # No DOM node exists for a vision-fallback step -- resolve() has
+            # nothing to return a Locator for, so drive the mouse directly.
+            page.mouse.click(coords.x, coords.y)
+        else:
+            resolve(page, step.locators, step.step_id).click()
         return
 
     if step.action == "type":
-        loc = resolve(page, step.locators, step.step_id)
         value = params[step.param_ref] if step.param_ref else step.value
-        loc.fill(value or "")
+        coords = step.locators[0] if step.locators and step.locators[0].kind == "coordinates" else None
+        if coords:
+            page.mouse.click(coords.x, coords.y)
+            page.keyboard.type(value or "")
+        else:
+            resolve(page, step.locators, step.step_id).fill(value or "")
         return
 
     raise HardFailure(step.step_id, "a known action type", step.action)

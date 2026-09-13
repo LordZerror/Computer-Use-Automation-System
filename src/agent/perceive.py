@@ -9,11 +9,13 @@ tree" than "raw DOM query": we compute an ARIA role and accessible name
 for every candidate the same way assistive tech would, which is what
 still works on legacy markup (nested tables, no semantic tags, frames).
 
-Fallback path: screenshot bytes for a vision-capable model to reason over
-coordinates when no interactive node is usable (e.g. a canvas-rendered
-control). Implemented and unit-tested, but not exercised live in this
-submission -- see REPORT.md ("Cuts"): the Groq model used for the agent
-loop (llama-3.3-70b-versatile) is text-only.
+Fallback path: when snapshot() finds zero usable elements (e.g. a
+canvas-rendered control with no DOM to speak of), agent/loop.py takes a
+screenshot instead and hands it to a vision+tool-calling model
+(agent/llm.py's decide_vision, qwen/qwen3.6-27b on Groq) which replies
+with pixel coordinates. See fixtures/canvas_button.html for a genuinely
+DOM-less demo target and artifact/schema.py's "coordinates" locator kind
+for how a vision-discovered step still becomes a replayable artifact step.
 """
 from __future__ import annotations
 
@@ -132,7 +134,45 @@ def format_for_llm(elements: list[dict], url: str) -> str:
     return "\n".join(lines)
 
 
-def screenshot_fallback(page: Page) -> bytes:
-    """Vision-fallback perception. See module docstring: implemented, not
-    wired into the live loop because the configured model has no vision."""
-    return page.screenshot()
+_GRID_OVERLAY_JS = """
+() => {
+  const overlay = document.createElement('canvas');
+  overlay.id = '__vision_fallback_grid__';
+  overlay.width = window.innerWidth;
+  overlay.height = window.innerHeight;
+  overlay.style.cssText = 'position:fixed;top:0;left:0;z-index:2147483647;pointer-events:none';
+  const ctx = overlay.getContext('2d');
+  ctx.strokeStyle = 'rgba(255,0,0,0.4)';
+  ctx.fillStyle = 'red';
+  ctx.font = '10px monospace';
+  for (let x = 0; x < overlay.width; x += 50) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, overlay.height); ctx.stroke();
+    ctx.fillText(String(x), x + 2, 10);
+  }
+  for (let y = 0; y < overlay.height; y += 50) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(overlay.width, y); ctx.stroke();
+    ctx.fillText(String(y), 2, y + 10);
+  }
+  document.body.appendChild(overlay);
+}
+"""
+
+
+def screenshot_fallback_b64(page: Page) -> str:
+    """Vision-fallback perception: used when snapshot() finds zero elements
+    (e.g. a canvas-rendered surface with no accessible DOM at all).
+
+    Overlays a labeled pixel grid before capturing -- measured live to
+    meaningfully improve small-vision-model coordinate grounding (without
+    it, the model estimates scale/position from vibes; with it, it reads
+    labeled gridlines). Removed again immediately after the screenshot so
+    it never affects the real page or a later DOM-based perception pass.
+    """
+    import base64
+
+    page.evaluate(_GRID_OVERLAY_JS)
+    try:
+        png_bytes = page.screenshot()
+    finally:
+        page.evaluate("() => document.getElementById('__vision_fallback_grid__')?.remove()")
+    return base64.b64encode(png_bytes).decode("ascii")

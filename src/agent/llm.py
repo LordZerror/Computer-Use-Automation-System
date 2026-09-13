@@ -14,9 +14,12 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from groq import Groq, RateLimitError
+from groq import BadRequestError, Groq, RateLimitError
 
 MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+# Used only when perception finds zero interactive elements (Section 3.1's
+# "no clean DOM" case) -- qwen3.6/3.8-27b are Groq's vision+tool-calling models.
+VISION_MODEL = os.environ.get("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 
 SYSTEM_PROMPT = """You are a computer-use agent operating a web application on \
 behalf of a user goal. You are given a numbered list of currently visible, \
@@ -132,6 +135,62 @@ TOOLS = [
 ]
 
 
+VISION_SYSTEM_PROMPT = """You are a computer-use agent operating a visual surface that has \
+NO accessible DOM/element list -- you can only see a screenshot, the way a human operator \
+would see a legacy or canvas-rendered app. Identify the target by its pixel position in the \
+image and act by calling exactly one tool per turn.
+
+A red grid with pixel-coordinate labels every 50px is overlaid on the image to \
+help you read exact positions -- use the nearest labeled lines to estimate a \
+target's coordinates rather than guessing from scale alone.
+
+Rules:
+- Give coordinates in pixels relative to the top-left of the screenshot, as \
+two separate plain numbers -- x=200, y=100 -- never as a list or array.
+- Call `finish` once the goal is visibly accomplished in the screenshot.
+- Call `escalate` if the goal seems impossible from what's visible, or you've \
+repeated the same click with no visible change.
+"""
+
+VISION_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "click_at",
+            "description": "Click at a pixel coordinate in the screenshot.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                    "label": {"type": "string", "description": "the visible text/label at this location, if any -- used for safety classification"},
+                },
+                "required": ["x", "y", "label"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "type_at",
+            "description": "Click at a pixel coordinate, then type text there.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                    "text": {"type": "string"},
+                    "label": {"type": "string", "description": "the visible field label at this location, if any -- used for safety classification"},
+                },
+                "required": ["x", "y", "text", "label"],
+            },
+        },
+    },
+    TOOLS[4],  # finish
+    TOOLS[5],  # escalate
+]
+
+
 @dataclass
 class ToolCall:
     name: str
@@ -162,21 +221,55 @@ class AgentLLM:
                 ),
             },
         ]
-        response = self._create_with_retry(messages)
+        response = self._create_with_retry(messages, MODEL, TOOLS)
         call = response.choices[0].message.tool_calls[0]
         return ToolCall(name=call.function.name, arguments=json.loads(call.function.arguments))
 
-    def _create_with_retry(self, messages: list[dict], max_retries: int = 5):
+    def decide_vision(self, goal: str, screenshot_b64: str, history: list[str]) -> ToolCall:
+        """Same contract as decide(), but for a surface with no accessible
+        element list at all -- the screenshot itself is the observation."""
+        history_text = "\n".join(history[-10:]) if history else "(no actions yet)"
+        messages = [
+            {"role": "system", "content": VISION_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"GOAL: {goal}\n\nACTIONS SO FAR:\n{history_text}"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"}},
+                ],
+            },
+        ]
+        response = self._create_with_retry(messages, VISION_MODEL, VISION_TOOLS)
+        call = response.choices[0].message.tool_calls[0]
+        return ToolCall(name=call.function.name, arguments=json.loads(call.function.arguments))
+
+    def _create_with_retry(self, messages: list[dict], model: str, tools: list[dict], max_retries: int = 5):
         """Free-tier Groq rate limits are tight (low tokens-per-minute); a
         computer-use loop that pauses and retries is exactly the 'transient
         slowness' handling this project is otherwise arguing for, so apply
-        it to our own LLM calls too instead of failing the whole run."""
+        it to our own LLM calls too instead of failing the whole run.
+
+        Also self-corrects a malformed tool call (observed live: the vision
+        model occasionally passes a coordinate as `[x, y]` instead of two
+        separate arguments) by feeding the validation error back to the
+        model once rather than failing the step outright."""
+        messages = list(messages)
         for attempt in range(max_retries):
             try:
                 return self.client.chat.completions.create(
-                    model=MODEL, messages=messages, tools=TOOLS, tool_choice="required", temperature=0,
+                    model=model, messages=messages, tools=tools, tool_choice="required", temperature=0,
                 )
             except RateLimitError:
                 if attempt == max_retries - 1:
                     raise
                 time.sleep(3 + attempt * 2)
+            except BadRequestError as e:
+                if attempt == max_retries - 1:
+                    raise
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"Your last tool call was rejected: {e}. Call the tool again with each "
+                        "argument as its own plain number (e.g. x=200, y=100), never as an array."
+                    ),
+                })

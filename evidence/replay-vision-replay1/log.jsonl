@@ -1,0 +1,3 @@
+{"ts": "2026-09-13T17:04:39.962206+00:00", "event": "replay_start", "capability": "click_canvas_button", "params": {}}
+{"ts": "2026-09-13T17:04:43.039517+00:00", "event": "step_executed", "step_id": "step_0", "action": "click", "value": null}
+{"ts": "2026-09-13T17:04:43.089331+00:00", "event": "replay_success", "outputs": {}}

@@ -1,0 +1,47 @@
+{
+  "id": "click_canvas_button",
+  "name": "click_canvas_button",
+  "version": "1.0.0",
+  "goal": "Click the button drawn on the canvas.",
+  "target": {
+    "base_url": "file:///Users/kaushalpatil/Development/Temp Repos/interface-ai-hiring/fixtures/canvas_button.html",
+    "app_id": "canvas-demo"
+  },
+  "input_params": [],
+  "steps": [
+    {
+      "step_id": "step_0",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "coordinates",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null,
+          "x": 200.0,
+          "y": 100.0
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Vision fallback: click at pixel (200, 100) -- 'Click me'. No DOM node was available."
+    }
+  ],
+  "output_spec": [],
+  "checkpoint": {
+    "kind": "text_present",
+    "pattern": null,
+    "text": "Clicked",
+    "locator": null
+  },
+  "created_from_run_id": "vision1",
+  "created_at": "2026-09-13T17:03:24.610893Z",
+  "status": "draft",
+  "stability_score": null,
+  "stability_sample_size": 0
+}

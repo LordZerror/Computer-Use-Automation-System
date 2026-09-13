@@ -123,6 +123,24 @@ curl -X POST http://localhost:8000/capabilities/add_to_cart_checkout/invoke \
   -d '{"username":"standard_user","password":"secret_sauce","first_name":"John","last_name":"Doe","zip_code":"94107"}'
 ```
 
+**7. Vision fallback** — the DOM-based path is primary, but when perception
+finds zero interactive elements (a canvas-rendered control with no
+accessible DOM at all — see `fixtures/canvas_button.html`), discovery falls
+back to a screenshot handed to a vision+tool-calling model, which replies
+with pixel coordinates. The resulting artifact carries a `coordinates`
+locator and replays deterministically like any other:
+
+```bash
+python -m src.cli discover \
+  --goal "Click the button drawn on the canvas." \
+  --target-url "file://$(pwd)/fixtures/canvas_button.html" \
+  --app-id canvas-demo --capability-id click_canvas_button \
+  --checkpoint-kind text_present --checkpoint-text "Clicked" \
+  --viewport 400x200 --headless --run-id vision1
+
+python -m src.cli replay --artifact artifacts/click_canvas_button.json --run-id vision-replay1
+```
+
 ## Running without live services
 
 `pytest tests/` runs fully offline (Chromium + `page.set_content`, no network, no
@@ -133,7 +151,7 @@ already failed). `discover` needs both network and `GROQ_API_KEY`.
 ## Project layout
 
 ```
-src/agent/        perception (a11y-tree snapshot) + Groq tool-calling loop
+src/agent/        perception (a11y-tree snapshot, vision fallback) + Groq tool-calling loop
 src/artifact/      capability schema, recorder (transcript -> artifact), store
 src/replay/        deterministic executor, ranked locator resolution, error taxonomy,
                    bounded assisted-fallback recovery (stretch goal)
@@ -142,6 +160,7 @@ src/escalation/    human-in-the-loop pause / live handoff / resume
 src/evidence/      structured JSONL logging + screenshots
 src/capabilities/  stretch goal: artifacts as a callable capability API, gated on approval
 config/            allowlist.yaml, error_signatures.yaml
+fixtures/          canvas_button.html -- a genuinely DOM-less demo target for the vision fallback
 artifacts/         saved capability artifacts
 evidence/          discovery + replay run evidence (checked in)
 ```

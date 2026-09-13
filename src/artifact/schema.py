@@ -12,7 +12,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 ActionType = Literal["navigate", "click", "type"]
-LocatorKind = Literal["role", "test_id", "text", "css", "xpath"]
+LocatorKind = Literal["role", "test_id", "text", "css", "xpath", "coordinates"]
 ParamType = Literal["string", "number", "boolean"]
 RiskLevel = Literal["safe", "risky"]
 CheckpointKind = Literal["url_pattern", "text_present", "element_present"]
@@ -32,6 +32,8 @@ class LocatorStrategy(BaseModel):
     text: Optional[str] = None      # kind="text": visible text (exact or substring)
     css: Optional[str] = None       # kind="css"
     xpath: Optional[str] = None     # kind="xpath": last resort, most brittle
+    x: Optional[float] = None       # kind="coordinates": pixel position, no DOM node exists
+    y: Optional[float] = None       # kind="coordinates": (e.g. a canvas-drawn control)
 
 
 class InputParam(BaseModel):

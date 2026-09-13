@@ -32,6 +32,10 @@ def cmd_discover(args: argparse.Namespace) -> int:
     run_id = args.run_id or f"run{int(time.time())}"
     params = _parse_kv(args.params)
     sensitive = set(args.sensitive)
+    viewport = None
+    if args.viewport:
+        w, h = args.viewport.split("x")
+        viewport = (int(w), int(h))
 
     result = run_discovery(
         goal=args.goal,
@@ -41,6 +45,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
         sensitive_params=sensitive,
         max_steps=args.max_steps,
         headless=args.headless,
+        viewport=viewport,
     )
 
     if not result.success:
@@ -148,6 +153,7 @@ def main() -> int:
     d.add_argument("--checkpoint-pattern", default=None)
     d.add_argument("--max-steps", type=int, default=15)
     d.add_argument("--headless", action="store_true", help="run without a visible browser window")
+    d.add_argument("--viewport", default=None, help="WxH, e.g. 400x200 -- match the target's real size for better vision-fallback coordinate grounding")
     d.add_argument("--run-id", default=None)
     d.set_defaults(func=cmd_discover)
 

@@ -14,6 +14,13 @@ def test_disallowed_domain_blocked():
         policy.check_domain("https://evil.example.com/")
 
 
+def test_file_url_always_allowed():
+    """Local fixtures (the vision-fallback demo target) aren't the
+    exfiltration risk a remote-domain allowlist exists to prevent."""
+    policy = load_policy()
+    policy.check_domain("file:///tmp/fixtures/canvas_button.html")  # must not raise
+
+
 def test_disallowed_action_type_blocked():
     policy = load_policy()
     with pytest.raises(PolicyViolation):

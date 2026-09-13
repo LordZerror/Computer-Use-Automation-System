@@ -33,7 +33,13 @@ class Policy:
         }
 
     def check_domain(self, url: str) -> None:
-        host = urlparse(url).netloc
+        parsed = urlparse(url)
+        if parsed.scheme == "file":
+            # A local fixture on the operator's own machine isn't the
+            # exfiltration/lateral-movement risk a remote-domain allowlist
+            # exists to prevent -- used for the vision-fallback demo target.
+            return
+        host = parsed.netloc
         if host not in self.allowed_domains:
             raise PolicyViolation(f"domain {host!r} is not in the allowlist")
 

@@ -34,6 +34,12 @@ def _locator_from_element(page: Page, element: dict):
     return page.locator(element["css"]).first
 
 
+# Vision-mode tool names map onto the same allowlisted action types as their
+# DOM-mode counterparts -- a coordinate click is still a "click" for policy
+# purposes, just located differently.
+_POLICY_ACTION_FOR_TOOL = {"click_at": "click", "type_at": "type"}
+
+
 def _redact_call_args(call, sensitive_params: set[str]) -> dict:
     """Never let a sensitive value reach the log, even as a raw tool-call
     argument -- redaction has to happen before the very first place anything
@@ -65,6 +71,7 @@ def run_discovery(
     max_steps: int = 15,
     timeout_s: int = 180,
     headless: bool = False,
+    viewport: tuple[int, int] | None = None,
 ) -> DiscoveryResult:
     params = params or {}
     sensitive_params = sensitive_params or set()
@@ -84,7 +91,10 @@ def run_discovery(
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=headless)
-        page = browser.new_page()
+        # A viewport much larger than the actual content hurts a vision
+        # model's coordinate grounding -- worth controlling per-target rather
+        # than always taking Playwright's default.
+        page = browser.new_page(viewport={"width": viewport[0], "height": viewport[1]} if viewport else None)
         page.goto(target_url)
         _settle(page)
 
@@ -94,14 +104,16 @@ def run_discovery(
                 break
 
             elements = perceive.snapshot(page)
-            if not elements:
-                escalate(logger, page, goal, f"step_{i}", "no interactive elements perceived on this page")
-                break
+            vision_mode = not elements
 
-            perception_text = perceive.format_for_llm(elements, page.url)
-            call = llm.decide(goal, perception_text, history, params)
+            if vision_mode:
+                screenshot_b64 = perceive.screenshot_fallback_b64(page)
+                call = llm.decide_vision(goal, screenshot_b64, history)
+            else:
+                perception_text = perceive.format_for_llm(elements, page.url)
+                call = llm.decide(goal, perception_text, history, params)
             logger.log({
-                "event": "llm_decision", "step": i, "tool": call.name,
+                "event": "vision_decision" if vision_mode else "llm_decision", "step": i, "tool": call.name,
                 "args": _redact_call_args(call, sensitive_params),
             })
 
@@ -117,13 +129,35 @@ def run_discovery(
                 continue
 
             try:
-                policy.check_action_type(call.name)
+                policy.check_action_type(_POLICY_ACTION_FOR_TOOL.get(call.name, call.name))
             except Exception as e:
                 history.append(f"[blocked by policy: {e}]")
                 logger.log({"event": "policy_blocked", "action": call.name, "reason": str(e)})
                 continue
 
             step_id = f"step_{len(transcript)}"
+
+            if call.name == "click_at":
+                x, y, label = call.arguments["x"], call.arguments["y"], call.arguments.get("label", "")
+                risk = policy.classify_risk(label)
+                if risk == "risky":
+                    history.append(f"[BLOCKED click on risky/irreversible control '{label}' by policy -- do not retry it.]")
+                    logger.log({"event": "policy_blocked_risky", "control": label})
+                    continue
+                page.mouse.click(x, y)
+                _settle(page)
+                transcript.append({"step_id": step_id, "action": "click", "coordinates": {"x": x, "y": y}, "label": label, "risk": risk})
+                history.append(f"clicked at ({x}, {y}) [{label}]")
+                continue
+
+            if call.name == "type_at":
+                x, y, text, label = call.arguments["x"], call.arguments["y"], call.arguments["text"], call.arguments.get("label", "")
+                page.mouse.click(x, y)
+                page.keyboard.type(text)
+                _settle(page)
+                transcript.append({"step_id": step_id, "action": "type", "coordinates": {"x": x, "y": y}, "value": text, "label": label})
+                history.append(f"typed '{text}' at ({x}, {y}) [{label}]")
+                continue
 
             if call.name in ("click", "type", "extract"):
                 idx = call.arguments.get("element_index", -1)

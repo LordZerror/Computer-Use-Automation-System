@@ -67,6 +67,23 @@ def build_capability(
             steps.append(Step(step_id=t["step_id"], action="navigate", value=t["value"], description="Direct navigation."))
             continue
 
+        if "coordinates" in t:
+            # Vision-fallback step: no DOM node exists, so there's nothing to
+            # rank -- pixel position is the only strategy available.
+            coords = LocatorStrategy(kind="coordinates", x=t["coordinates"]["x"], y=t["coordinates"]["y"])
+            label = t.get("label") or "(no visible label)"
+            steps.append(
+                Step(
+                    step_id=t["step_id"],
+                    action=action,
+                    locators=[coords],
+                    value=t.get("value") if action == "type" else None,
+                    risk=t.get("risk", "safe"),
+                    description=f"Vision fallback: {action} at pixel ({t['coordinates']['x']}, {t['coordinates']['y']}) -- {label!r}. No DOM node was available.",
+                )
+            )
+            continue
+
         element = t["element"]
         risk = t.get("risk", "safe")
         if action == "click":
