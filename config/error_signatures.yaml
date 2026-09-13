@@ -1,0 +1,39 @@
+# Generic runtime-error detection for the replay executor (Section 3.3).
+#
+# This is deliberately app-agnostic (a vendor-product-level policy, not
+# per-capability): after every step, replay checks whether any of these
+# selectors are visible and, if so, classifies the text against the
+# patterns below. This is also the seam that lets the same detection
+# logic cover every tenant running the same underlying vendor app
+# (Section 3.7) without re-encoding "what an error looks like" per artifact.
+
+error_selectors:
+  - '[data-test="error"]'
+  - ".error-message-container"
+
+# First matching substring (case-insensitive) wins. `category` decides how
+# the executor responds:
+#   business_outcome -> stop, report as a legitimate result (not a failure)
+#   recoverable       -> dismiss/retry once, then continue the same step
+patterns:
+  - match: "do not match"
+    code: invalid_login
+    category: business_outcome
+  - match: "is required"
+    code: validation_error
+    category: business_outcome
+  - match: "not found"
+    code: not_found
+    category: business_outcome
+  - match: "no such"
+    code: not_found
+    category: business_outcome
+
+# Any error text that matches a selector above but no pattern falls
+# through to a hard failure -- an app said something went wrong and we
+# don't have a known interpretation for it, so we stop rather than guess.
+
+# Known dismissible interstitials (cookie banners, etc.) tried before
+# every step. Empty here because saucedemo has none; a real deployment
+# would list tenant/vendor-specific selectors.
+dismissible_selectors: []

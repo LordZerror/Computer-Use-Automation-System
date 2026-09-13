@@ -1,0 +1,40 @@
+# Safety & policy guardrails (Section 3.4).
+# Both discovery and replay load this before acting; anything outside it is rejected,
+# not silently skipped.
+
+# Domains the agent/replay is permitted to navigate to. Exact host match.
+allowed_domains:
+  - www.saucedemo.com
+  - saucedemo.com
+
+# Action types the agent/replay is permitted to perform at all.
+allowed_action_types:
+  - navigate
+  - click
+  - type
+  - extract
+  - finish
+
+# A step is classified "risky" (blocked by default, never auto-executed) if the
+# control's visible text/name matches one of these case-insensitive substrings.
+# This is deliberately conservative: money-moving / irreversible-sounding controls
+# are blocked even if the goal only meant to observe them.
+risky_text_markers:
+  - "finish"        # saucedemo's final "place order" button on checkout step two
+  - "place order"
+  - "complete order"
+  - "pay"
+  - "delete"
+  - "remove"
+  - "cancel account"
+  - "submit payment"
+
+# Field names on input_params treated as sensitive by default even if the
+# artifact author forgot to flag them (belt + suspenders for 3.4's redaction rule).
+sensitive_param_names:
+  - password
+  - ssn
+  - card_number
+  - cvv
+  - token
+  - credential
