@@ -34,6 +34,15 @@ def _locator_from_element(page: Page, element: dict):
     return page.locator(element["css"]).first
 
 
+def _redact_call_args(call, sensitive_params: set[str]) -> dict:
+    """Never let a sensitive value reach the log, even as a raw tool-call
+    argument -- redaction has to happen before the very first place anything
+    gets written, not just in the human-readable history trail."""
+    if call.name == "type" and call.arguments.get("param_name") in sensitive_params:
+        return {**call.arguments, "text": "***REDACTED***"}
+    return call.arguments
+
+
 def _settle(page: Page) -> None:
     """This target (and, we'd guess, plenty of real enterprise apps) finishes
     its network activity before it finishes rendering -- content can still be
@@ -91,7 +100,10 @@ def run_discovery(
 
             perception_text = perceive.format_for_llm(elements, page.url)
             call = llm.decide(goal, perception_text, history, params)
-            logger.log({"event": "llm_decision", "step": i, "tool": call.name, "args": call.arguments})
+            logger.log({
+                "event": "llm_decision", "step": i, "tool": call.name,
+                "args": _redact_call_args(call, sensitive_params),
+            })
 
             if call.name == "finish":
                 summary = call.arguments.get("summary", "")
@@ -125,7 +137,10 @@ def run_discovery(
             if call.name == "click":
                 risk = policy.classify_risk(element["name"])
                 if risk == "risky":
-                    history.append(f"[BLOCKED click on risky control '{element['name']}']")
+                    history.append(
+                        f"[BLOCKED click on risky/irreversible control '{element['name']}' by policy -- "
+                        "do not retry it. If the stated goal is already satisfied, call finish now.]"
+                    )
                     logger.log({"event": "policy_blocked_risky", "control": element["name"]})
                     continue
                 _locator_from_element(page, element).click()

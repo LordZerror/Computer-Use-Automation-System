@@ -1,0 +1,5 @@
+{"ts": "2026-09-13T11:28:15.870208+00:00", "event": "replay_start", "capability": "add_to_cart_checkout", "params": {"username": "standard_user", "password": "***REDACTED***", "first_name": "John", "last_name": "Doe", "zip_code": "94107"}}
+{"ts": "2026-09-13T11:28:19.805060+00:00", "event": "step_executed", "step_id": "step_0", "action": "type", "value": "standard_user"}
+{"ts": "2026-09-13T11:28:20.390120+00:00", "event": "step_executed", "step_id": "step_1", "action": "type", "value": "***REDACTED***"}
+{"ts": "2026-09-13T11:28:21.078815+00:00", "event": "step_executed", "step_id": "step_2", "action": "click", "value": null}
+{"ts": "2026-09-13T11:28:21.141459+00:00", "event": "business_outcome", "code": "invalid_login", "message": "Epic sadface: Username and password do not match any user in this service"}

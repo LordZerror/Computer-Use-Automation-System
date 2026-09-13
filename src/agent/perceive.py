@@ -45,7 +45,7 @@ _COLLECT_JS = """
       el.getAttribute('alt') ||
       el.getAttribute('title') ||
       ''
-    ).trim().slice(0, 120);
+    ).trim().slice(0, 60);
   }
 
   function role(el) {
@@ -76,8 +76,14 @@ _COLLECT_JS = """
     return parts.join(' > ');
   }
 
+  const INTERACTIVE_ROLES = new Set([
+    'button', 'link', 'textbox', 'combobox', 'checkbox', 'radio',
+    'menuitem', 'tab', 'switch', 'searchbox', 'spinbutton',
+  ]);
+
+  const testIdSelector = TEST_ID_ATTRS.map(a => `[${a}]`).join(', ');
   const nodes = document.querySelectorAll(
-    'button, a, input, select, textarea, [role], [onclick]'
+    `button, a, input, select, textarea, [role], [onclick], ${testIdSelector}`
   );
   const out = [];
   for (const el of nodes) {
@@ -87,9 +93,19 @@ _COLLECT_JS = """
       const v = el.getAttribute(attr);
       if (v) { testId = v; break; }
     }
+    const interactive = INTERACTIVE_ROLES.has(role(el));
+    // Plain, non-interactive text still gets surfaced (as role "text") when it
+    // carries a stable test id -- that's exactly the kind of read-only value
+    // (a total, a status label) `extract` needs to target, and a test id makes
+    // it a reliable extraction locator even though it's not clickable/typeable.
+    if (!interactive && !testId) continue;
+    // Skip a non-interactive container whose own test id just wraps other
+    // test-id'd descendants (header-container, cart-list, ...) -- those
+    // descendants are already surfaced individually and are more specific.
+    if (!interactive && testId && el.querySelector(testIdSelector)) continue;
     out.push({
       tag: el.tagName.toLowerCase(),
-      role: role(el),
+      role: interactive ? role(el) : 'text',
       name: accessibleName(el),
       test_id: testId,
       css: cssPath(el),
