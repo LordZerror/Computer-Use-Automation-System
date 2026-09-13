@@ -204,14 +204,32 @@ and replay from the same object:
   described in §2, can never appear as a literal value inside a saved
   artifact in the first place.
 
+**Confidence & approval gating (Section 8 stretch goal):** `Capability` carries
+a `status` (`draft`/`approved`) plus a `stability_score`. `cli.py stability`
+replays an artifact N times with identical params and scores how often the
+outcome agreed with the majority — deliberately a *consistency* measure, not a
+success-rate one, so an artifact that reliably returns the same
+`business_outcome` for bad input scores as stable, not flaky (the three-way
+result contract from §3 stays intact rather than being collapsed back into
+pass/fail). `cli.py approve` flips `status` to `approved` only above a
+threshold (or `--force`, loudly logged). `replay()`'s new
+`require_approved` flag rejects a non-approved capability before a browser is
+even launched; the capability API's `/invoke` — the one genuinely
+*unattended* caller in this project, matching Section 8's wording exactly —
+always sets it, while the CLI's own `replay` stays unattended-gate-free by
+default for manual testing. Verified live: `evidence/replay-stability-*/` (5
+real replays, score 1.0) and `evidence/replay-api-*/` (the capability API
+refusing a `draft` copy, then succeeding once approved).
+
 **Limits**: the allowlist is domain + action-type only — it doesn't reason
 about *which record* a risky-adjacent action touches (e.g. "delete" on one's
 own draft vs. someone else's live account), and risk classification is a
 keyword match on visible text, which a differently-worded UI could evade. A
-production version would need per-field data-classification rules and a
-signed/reviewed approval step before a capability with any `risky` step could
-run unattended (this overlaps with the "confidence & approval" stretch goal in
-Section 8, not built here).
+production version would need per-field data-classification rules; the
+confidence/approval gate above covers *whether an artifact runs unattended at
+all*, but doesn't yet condition approval on which risk-classified steps it
+contains — an artifact with only `safe` steps and one with a blocked `risky`
+step are approved the same way today.
 
 ## 7. Cuts
 
@@ -231,18 +249,21 @@ Section 8, not built here).
   built — the brief explicitly doesn't ask for them to be implemented.
 - **Operator console UI**: a CLI prompt over the same live browser window
   stands in for a real console, per the brief's own scope note (§5 above).
-- **Stretch goals not attempted**: confidence/approval scoring, code
-  generation from an artifact, canonicalization/cross-tenant reuse, and
-  multi-run stability sampling. Two were built instead: the agent-facing
-  capability API (`src/capabilities/`), since it most directly demonstrates
-  the "artifact = reusable capability" framing the brief centers on; and
-  assisted fallback on replay failure (`src/replay/fallback.py`, §3 above),
-  since it's the stretch goal that most directly exercises the error-handling
-  and safety machinery already built rather than adding a new subsystem.
+- **Stretch goals not attempted**: code generation from an artifact, and
+  canonicalization/cross-tenant reuse. The brief asks for "at most one or
+  two — depth over breadth"; three were built anyway, past that guidance, in
+  response to an explicit follow-up ask: the agent-facing capability API
+  (`src/capabilities/`), since it most directly demonstrates the "artifact =
+  reusable capability" framing the brief centers on; assisted fallback on
+  replay failure (`src/replay/fallback.py`, §3), since it most directly
+  exercises the error-handling and safety machinery already built rather than
+  adding a new subsystem; and confidence & approval gating (§6), because it
+  composes with both of the others (multi-run stability feeds approval, which
+  gates the capability API) instead of sitting off to the side.
 
 **Next with more time**: wire a vision-capable model behind the same
 `perceive.py` seam for the fallback path; add the per-tenant override
 resolution described in §4 with a second recorded artifact against a
-deliberately-varied clone of the target to prove cross-tenant reuse; add the
-confidence/approval stretch goal on top of the existing evidence log (it's
-mostly a rollup query over `ReplayResult.status` across runs).
+deliberately-varied clone of the target to prove cross-tenant reuse; extend
+approval gating to condition on a capability's risk-classified steps, not just
+its stability score.

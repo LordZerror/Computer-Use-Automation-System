@@ -92,11 +92,32 @@ python -m src.cli replay --artifact artifacts/add_to_cart_checkout__fault_demo.j
   --allow-assisted-fallback --run-id fallback-with-flag   # -> success, recovers step_3
 ```
 
-**5. Stretch goal — agent-facing capability API:**
+**5. Confidence & approval gating (stretch goal)** — a fresh artifact starts
+`"status": "draft"`; measure how consistently it replays, then approve it:
+
+```bash
+python -m src.cli stability --artifact artifacts/add_to_cart_checkout.json \
+  --params username=standard_user password=secret_sauce first_name=John last_name=Doe zip_code=94107 \
+  --runs 5   # writes stability_score back onto the artifact
+
+python -m src.cli approve --artifact artifacts/add_to_cart_checkout.json   # refuses below --min-stability (default 0.8)
+```
+
+**6. Stretch goal — agent-facing capability API**, gated on the approval above
+(the API is the one genuinely *unattended* caller in this project — every
+`/invoke` requires `status: approved`, regardless of the `replay` CLI's own
+default):
 
 ```bash
 python -m src.cli serve
-curl http://localhost:8000/capabilities
+curl http://localhost:8000/capabilities   # shows status + stability_score per capability
+
+# the still-draft fault-injection artifact is refused, no browser launched:
+curl -X POST http://localhost:8000/capabilities/add_to_cart_checkout__fault_demo/invoke \
+  -H "Content-Type: application/json" \
+  -d '{"username":"standard_user","password":"secret_sauce","first_name":"John","last_name":"Doe","zip_code":"94107"}'
+
+# the approved capability succeeds:
 curl -X POST http://localhost:8000/capabilities/add_to_cart_checkout/invoke \
   -H "Content-Type: application/json" \
   -d '{"username":"standard_user","password":"secret_sauce","first_name":"John","last_name":"Doe","zip_code":"94107"}'
@@ -119,7 +140,7 @@ src/replay/        deterministic executor, ranked locator resolution, error taxo
 src/safety/        allowlist, risk classification, redaction
 src/escalation/    human-in-the-loop pause / live handoff / resume
 src/evidence/      structured JSONL logging + screenshots
-src/capabilities/  stretch goal: artifacts as a callable capability API
+src/capabilities/  stretch goal: artifacts as a callable capability API, gated on approval
 config/            allowlist.yaml, error_signatures.yaml
 artifacts/         saved capability artifacts
 evidence/          discovery + replay run evidence (checked in)

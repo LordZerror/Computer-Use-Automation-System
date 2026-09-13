@@ -27,5 +27,7 @@ def invoke_capability(name: str, params: dict[str, str]):
     matches = [c for c in list_capabilities() if c.name == name]
     if not matches:
         raise HTTPException(404, f"no capability named {name!r}")
-    result = replay(matches[0], params, run_id=f"api-{uuid.uuid4().hex[:8]}")
+    # This endpoint is the one genuinely "unattended" caller in this project
+    # (an agent invoking a capability by name) -- always gated on approval.
+    result = replay(matches[0], params, run_id=f"api-{uuid.uuid4().hex[:8]}", require_approved=True)
     return result.model_dump()

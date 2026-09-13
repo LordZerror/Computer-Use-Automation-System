@@ -2,7 +2,9 @@
 
     python -m src.cli discover --goal "..." --target-url https://www.saucedemo.com/ ...
     python -m src.cli replay --artifact artifacts/<id>.json --params k=v ...
-    python -m src.cli serve   # stretch goal: agent-facing capability API
+    python -m src.cli stability --artifact artifacts/<id>.json --params k=v --runs 5   # stretch goal
+    python -m src.cli approve --artifact artifacts/<id>.json                          # stretch goal
+    python -m src.cli serve   # stretch goal: agent-facing capability API (gated on approval)
 """
 from __future__ import annotations
 
@@ -79,10 +81,48 @@ def cmd_replay(args: argparse.Namespace) -> int:
         headless=not args.visible,
         allow_escalation=args.allow_escalation,
         allow_assisted_fallback=args.allow_assisted_fallback,
+        require_approved=args.require_approved,
     )
     print(json.dumps(result.model_dump(), indent=2, default=str))
     print(f"Evidence -> evidence/replay-{run_id}/", file=sys.stderr)
     return 0 if result.status != "failure" else 2
+
+
+def cmd_stability(args: argparse.Namespace) -> int:
+    from src.replay.stability import measure_stability  # deferred, same reason as cmd_replay
+
+    capability = store.load(args.artifact)
+    params = _parse_kv(args.params)
+    result = measure_stability(capability, params, runs=args.runs)
+
+    capability.stability_score = result["score"]
+    capability.stability_sample_size = result["runs"]
+    store.save(capability)
+
+    print(json.dumps(result, indent=2))
+    print(f"Wrote stability_score={result['score']:.2f} (n={result['runs']}) -> {args.artifact}")
+    return 0
+
+
+def cmd_approve(args: argparse.Namespace) -> int:
+    capability = store.load(args.artifact)
+
+    if not args.force:
+        if capability.stability_score is None:
+            print("Refusing: no stability score on file. Run `stability` first, or pass --force.", file=sys.stderr)
+            return 1
+        if capability.stability_score < args.min_stability:
+            print(
+                f"Refusing: stability_score={capability.stability_score:.2f} is below "
+                f"--min-stability={args.min_stability}. Pass --force to override.",
+                file=sys.stderr,
+            )
+            return 1
+
+    capability.status = "approved"
+    store.save(capability)
+    print(f"Approved {capability.id} (stability_score={capability.stability_score}, force={args.force})")
+    return 0
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
@@ -117,8 +157,21 @@ def main() -> int:
     r.add_argument("--visible", action="store_true", help="show the browser window instead of running headless")
     r.add_argument("--allow-escalation", action="store_true", help="pause for human handoff on a hard failure instead of returning it immediately")
     r.add_argument("--allow-assisted-fallback", action="store_true", help="on a hard failure, try one bounded, policy-checked LLM recovery for that step before escalation/failure (needs GROQ_API_KEY)")
+    r.add_argument("--require-approved", action="store_true", help="refuse to run unless the artifact's status is 'approved' (the capability API always sets this)")
     r.add_argument("--run-id", default=None)
     r.set_defaults(func=cmd_replay)
+
+    st = sub.add_parser("stability", help="Replay an artifact N times and score how consistently it replays (stretch goal).")
+    st.add_argument("--artifact", required=True)
+    st.add_argument("--params", nargs="*", default=[])
+    st.add_argument("--runs", type=int, default=5)
+    st.set_defaults(func=cmd_stability)
+
+    ap = sub.add_parser("approve", help="Mark an artifact 'approved' for unattended replay (stretch goal).")
+    ap.add_argument("--artifact", required=True)
+    ap.add_argument("--min-stability", type=float, default=0.8)
+    ap.add_argument("--force", action="store_true", help="approve even without a passing (or any) stability score")
+    ap.set_defaults(func=cmd_approve)
 
     s = sub.add_parser("serve", help="Serve the agent-facing capability API (stretch goal).")
     s.add_argument("--port", type=int, default=8000)

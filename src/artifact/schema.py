@@ -97,3 +97,9 @@ class Capability(BaseModel):
     checkpoint: Checkpoint
     created_from_run_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Confidence & approval gating (Section 8 stretch goal). New artifacts
+    # start "draft" and unmeasured; see replay/stability.py + `cli.py approve`.
+    status: Literal["draft", "approved"] = "draft"
+    stability_score: Optional[float] = None
+    stability_sample_size: int = 0

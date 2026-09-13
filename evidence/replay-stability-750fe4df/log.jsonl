@@ -1,0 +1,12 @@
+{"ts": "2026-09-13T16:02:34.825488+00:00", "event": "replay_start", "capability": "add_to_cart_checkout", "params": {"username": "standard_user", "password": "***REDACTED***", "first_name": "John", "last_name": "Doe", "zip_code": "94107"}}
+{"ts": "2026-09-13T16:02:39.560287+00:00", "event": "step_executed", "step_id": "step_0", "action": "type", "value": "standard_user"}
+{"ts": "2026-09-13T16:02:40.165275+00:00", "event": "step_executed", "step_id": "step_1", "action": "type", "value": "***REDACTED***"}
+{"ts": "2026-09-13T16:02:40.781865+00:00", "event": "step_executed", "step_id": "step_2", "action": "click", "value": null}
+{"ts": "2026-09-13T16:02:41.336947+00:00", "event": "step_executed", "step_id": "step_3", "action": "click", "value": null}
+{"ts": "2026-09-13T16:02:41.885853+00:00", "event": "step_executed", "step_id": "step_4", "action": "click", "value": null}
+{"ts": "2026-09-13T16:02:42.453748+00:00", "event": "step_executed", "step_id": "step_5", "action": "click", "value": null}
+{"ts": "2026-09-13T16:02:42.976913+00:00", "event": "step_executed", "step_id": "step_6", "action": "type", "value": "John"}
+{"ts": "2026-09-13T16:02:43.504659+00:00", "event": "step_executed", "step_id": "step_7", "action": "type", "value": "Doe"}
+{"ts": "2026-09-13T16:02:44.034650+00:00", "event": "step_executed", "step_id": "step_8", "action": "type", "value": "94107"}
+{"ts": "2026-09-13T16:02:44.582505+00:00", "event": "step_executed", "step_id": "step_9", "action": "click", "value": null}
+{"ts": "2026-09-13T16:02:44.598935+00:00", "event": "replay_success", "outputs": {"order_total": "Total: $32.39"}}

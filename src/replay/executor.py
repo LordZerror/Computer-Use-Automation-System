@@ -77,6 +77,7 @@ def replay(
     headless: bool = True,
     allow_escalation: bool = False,
     allow_assisted_fallback: bool = False,
+    require_approved: bool = False,
 ) -> ReplayResult:
     policy = load_policy()
     error_sigs = load_error_signatures()
@@ -88,6 +89,20 @@ def replay(
         "capability": capability.id,
         "params": policy.redact_params(params, declared_sensitive),
     })
+
+    if require_approved and capability.status != "approved":
+        # The one real "unattended" caller in this project (the capability
+        # API) always sets this. Rejected before a browser is even launched --
+        # cheap, fast, and not a crash: it's a policy decision, not an error.
+        logger.log({"event": "rejected_not_approved", "status": capability.status})
+        return ReplayResult(
+            status="failure",
+            error={
+                "step_id": "approval",
+                "expected": "an approved capability",
+                "observed": f"capability status is {capability.status!r}",
+            },
+        )
 
     try:
         _validate_params(capability, params)

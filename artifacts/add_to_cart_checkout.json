@@ -541,5 +541,8 @@
     "locator": null
   },
   "created_from_run_id": "discovery1",
-  "created_at": "2026-09-13T11:27:54.080868Z"
+  "created_at": "2026-09-13T11:27:54.080868Z",
+  "status": "approved",
+  "stability_score": 1.0,
+  "stability_sample_size": 5
 }

@@ -1,0 +1,2 @@
+{"ts": "2026-09-13T16:03:39.274074+00:00", "event": "replay_start", "capability": "add_to_cart_checkout__fault_demo", "params": {"username": "standard_user", "password": "***REDACTED***", "first_name": "John", "last_name": "Doe", "zip_code": "94107"}}
+{"ts": "2026-09-13T16:03:39.274277+00:00", "event": "rejected_not_approved", "status": "draft"}

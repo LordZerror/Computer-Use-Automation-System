@@ -20,6 +20,8 @@ def to_tool_spec(capability: Capability) -> dict:
         "name": capability.name,
         "description": capability.goal,
         "version": capability.version,
+        "status": capability.status,  # "draft" capabilities will be refused by /invoke
+        "stability_score": capability.stability_score,
         "parameters": {
             "type": "object",
             "properties": {
