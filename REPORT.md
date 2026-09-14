@@ -26,6 +26,49 @@ Three pipeline stages, each independently testable:
    LLM entirely out of the loop, using the same locator vocabulary the
    recorder wrote down.
 
+### 1.1 Workflow
+
+
+
+```mermaid
+flowchart LR
+    subgraph DISC["Discovery — src/agent/"]
+        direction TB
+        D1["perceive.snapshot(page)"] -->|"empty"| D2["vision: screenshot_fallback_b64"]
+        D1 -->|"elements"| D3["llm.decide(...)"]
+        D2 --> D4["llm.decide_vision(...)"]
+        D3 --> D5["loop.py: run action on Playwright"]
+        D4 --> D5
+        D5 -->|"stuck 2x / escalate call"| ESC["escalation.manager"]
+        ESC --> D5
+        D5 -->|"finish"| D6["transcript"]
+    end
+
+    D6 --> REC["recorder.py: transcript → Capability\n(pure fn)"]
+
+    subgraph REPL["Replay — src/replay/"]
+        direction TB
+        R1["executor.py: per step"] --> R2["locator.resolve —\nranked strategies, first match wins"]
+        R2 -->|"all strategies fail\n+ --allow-assisted-fallback"| R3["fallback.py:\n1 bounded LLM pick_element call"]
+        R2 --> R4["run the action"]
+        R3 --> R4
+        R4 --> R5["classify outcome:\nbusiness_outcome / recoverable / failure"]
+        R5 -->|"still stuck\n+ --allow-escalation"| ESC
+        R5 --> R1
+        R1 --> R6["checkpoint assertion"]
+    end
+
+    REC --> R1
+    REC --> STAB["cli.py stability → cli.py approve"]
+    R6 --> API["capabilities/server.py\nPOST /invoke (require_approved)"]
+    STAB --> API
+```
+
+Discovery's internal observe → decide → act cycle, and the guardrails wrapped
+around it (policy check, redaction, `_settle()`, dead-end detection) that
+exist because a real run hit each one, are written up step-by-step in
+[docs/DISCOVERY_LOOP.md](docs/DISCOVERY_LOOP.md).
+
 Perception is hybrid, both halves genuinely exercised: accessibility-tree-style
 text (role/name/test-id) is the default and primary path — it survives
 table-based legacy layouts and frames far better than pixel coordinates do
@@ -187,8 +230,13 @@ seen during development:
   `business_outcome` (`invalid_login`) once `#flash` and an `"is invalid"`
   pattern were added to `error_signatures.yaml` —
   `evidence/replay-portability-heroku-replay-bad/`.
+- `automationexercise.com/products` (the listing page rather than a single
+  product page — ~34 structurally-identical "Add to Cart" buttons instead of
+  one) — `artifacts/automationexercise_add_to_cart_from_listing.json`,
+  `evidence/discovery-portability-ae2/`,
+  `evidence/replay-portability-ae2-replay/`.
 
-This surfaced three real bugs the saucedemo-only development had never hit,
+This surfaced four real bugs the saucedemo-only development had never hit,
 each fixed and covered by a test rather than special-cased for one site:
 
 1. **Accessible-name gap**: herokuapp's login fields have no
@@ -210,6 +258,22 @@ each fixed and covered by a test rather than special-cased for one site:
    model judgment — escalates to a human when a person is watching
    (non-headless), stops as a dead end otherwise
    (`tests/test_agent_loop_robustness.py`).
+4. **`resolve()` silently guessed between ambiguous matches**: the first
+   locator strategy with `count() >= 1` won outright, without checking the
+   match was *unique* — fine on the two single-item pages above, but the
+   products *listing* page has ~34 identical "Add to Cart" buttons, so the
+   recorded `role`/`text` strategies (`"Add to cart"`) match dozens of
+   elements with no per-product disambiguation; only the structural `css`
+   fallback happens to be specific. Reproduced concretely: replaying that
+   artifact's top-ranked `text` strategy directly (bypassing the fix) matches
+   68 elements and `.first` adds **Blue Top** — the wrong product — while
+   still reporting success, since the confirmation text is generic to any
+   product. Fixed by checking *visible* match count per strategy: exactly one
+   → use it; more than one → don't guess, fall through to the next
+   (lower-ranked, often more specific) strategy instead; only raise `failure`
+   if nothing resolves uniquely (`tests/test_replay_executor.py`). This is the
+   most dangerous of the four, because a wrong silent click doesn't fail loud
+   — it reports `success` having done the wrong thing.
 
 None of these are saucedemo-specific patches — they're gaps in the generic
 DOM-walking/loop-control code, which is exactly what a real second tenant

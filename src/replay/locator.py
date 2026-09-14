@@ -33,14 +33,28 @@ def _build(page: Page, s: LocatorStrategy) -> Locator:
 
 def resolve(page: Page, strategies: list[LocatorStrategy], step_id: str) -> Locator:
     attempted: list[str] = []
+    ambiguous: list[str] = []
     for s in strategies:
         attempted.append(s.kind)
         try:
             loc = _build(page, s)
-            if loc.count() >= 1 and loc.first.is_visible():
-                return loc.first
+            count = loc.count()
         except Exception:
             continue
+        visible = [i for i in range(count) if loc.nth(i).is_visible()]
+        if len(visible) == 1:
+            return loc.nth(visible[0])
+        if len(visible) > 1:
+            # Don't guess which one the recorder meant -- fall through to a
+            # lower-ranked (often more specific, e.g. structural css) strategy
+            # instead of silently clicking whichever Playwright returns first.
+            ambiguous.append(s.kind)
+    if ambiguous:
+        raise HardFailure(
+            step_id=step_id,
+            expected=f"exactly one visible element for strategies {attempted}",
+            observed=f"strategies {ambiguous} each matched multiple visible elements -- refusing to guess",
+        )
     raise HardFailure(
         step_id=step_id,
         expected=f"one of locator strategies {attempted} to resolve to a visible element",

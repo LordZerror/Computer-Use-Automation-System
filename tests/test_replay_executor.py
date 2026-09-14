@@ -44,6 +44,33 @@ def test_locator_raises_hard_failure_when_no_strategy_resolves(page):
         resolve(page, [LocatorStrategy(kind="test_id", test_id="missing")], "step_0")
 
 
+def test_locator_refuses_to_guess_between_ambiguous_matches(page):
+    # Two structurally-identical "Add to Cart" buttons (e.g. a product grid) --
+    # replay must not silently click whichever one Playwright returns first.
+    page.set_content(
+        '<button class="add">Add to Cart</button>'
+        '<button class="add">Add to Cart</button>'
+    )
+    with pytest.raises(HardFailure):
+        resolve(page, [LocatorStrategy(kind="text", text="Add to Cart")], "step_0")
+
+
+def test_locator_falls_through_ambiguous_strategy_to_a_unique_one(page):
+    # The top-ranked strategy (text) is ambiguous, but a lower-ranked, more
+    # specific strategy (css) still resolves uniquely -- degrade-through-ranking
+    # should recover here rather than failing outright.
+    page.set_content(
+        '<button class="add">Add to Cart</button>'
+        '<button id="target" class="add only-this-one">Add to Cart</button>'
+    )
+    strategies = [
+        LocatorStrategy(kind="text", text="Add to Cart"),
+        LocatorStrategy(kind="css", css="#target"),
+    ]
+    loc = resolve(page, strategies, "step_0")
+    assert loc.get_attribute("id") == "target"
+
+
 def test_checkpoint_text_present_passes_when_text_found(page):
     page.set_content("<body>Checkout: Overview</body>")
     _verify_checkpoint(page, Checkpoint(kind="text_present", text="Checkout: Overview"))  # no raise

@@ -1,0 +1,69 @@
+{
+  "id": "automationexercise_add_to_cart_from_listing",
+  "name": "automationexercise_add_to_cart_from_listing",
+  "version": "1.0.0",
+  "goal": "This product listing page shows products in this fixed reading order: 1) Blue Top, 2) Men Tshirt, 3) Sleeveless Dress, 4) Stylish Dress, 5) Winter Top, 6) Summer White Top, each with its own 'Add to Cart' control in that same order (do not use search or scroll). Click the 3rd 'Add to Cart' element (Sleeveless Dresss) -- do not click the 1st, 2nd, 4th, 5th, or 6th. That click opens an 'Added!' confirmation dialog -- the instant it appears, call finish immediately. Do not click View Cart, do not click Continue Shopping, do not click anything else. Only two actions total: the one click, then finish.",
+  "target": {
+    "base_url": "https://www.automationexercise.com/products",
+    "app_id": "automationexercise"
+  },
+  "input_params": [],
+  "steps": [
+    {
+      "step_id": "step_0",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "role",
+          "role": "link",
+          "name": "Add to cart",
+          "test_id": null,
+          "text": null,
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "text",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": "Add to cart",
+          "css": null,
+          "xpath": null,
+          "x": null,
+          "y": null
+        },
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "div:nth-of-type(4) > div > div:nth-of-type(1) > div:nth-of-type(1) > a",
+          "xpath": null,
+          "x": null,
+          "y": null
+        }
+      ],
+      "value": null,
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via role (role + accessible name mirrors how a screen reader would find this control); recorded 3 fallback strategies."
+    }
+  ],
+  "output_spec": [],
+  "checkpoint": {
+    "kind": "text_present",
+    "pattern": null,
+    "text": "Your product has been added to cart.",
+    "locator": null
+  },
+  "created_from_run_id": "portability-ae2",
+  "created_at": "2026-09-14T11:36:20.874867Z",
+  "status": "draft",
+  "stability_score": null,
+  "stability_sample_size": 0
+}

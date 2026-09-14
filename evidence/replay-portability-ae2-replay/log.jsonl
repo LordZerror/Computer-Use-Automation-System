@@ -1,0 +1,3 @@
+{"ts": "2026-09-14T11:36:49.858645+00:00", "event": "replay_start", "capability": "automationexercise_add_to_cart_from_listing", "params": {}}
+{"ts": "2026-09-14T11:36:58.539709+00:00", "event": "step_executed", "step_id": "step_0", "action": "click", "value": null}
+{"ts": "2026-09-14T11:36:58.558658+00:00", "event": "replay_success", "outputs": {}}

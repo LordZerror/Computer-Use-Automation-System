@@ -151,7 +151,7 @@ The pipeline is not saucedemo-specific. The same code, pointed at two more
 public sites never seen during development (only `config/allowlist.yaml` +
 `config/error_signatures.yaml` extended, as REPORT.md §4 says a real
 cross-tenant deployment would), produced genuine artifacts and evidence —
-see REPORT.md §4 for the three real bugs this surfaced and fixed:
+see REPORT.md §4 for the four real bugs this surfaced and fixed:
 
 ```bash
 python -m src.cli discover \
@@ -168,7 +168,18 @@ python -m src.cli discover \
   --app-id automationexercise --capability-id automationexercise_add_to_cart \
   --checkpoint-kind text_present --checkpoint-text "Register / Login account to proceed on checkout" \
   --headless --run-id portability-ae1
+
+python -m src.cli discover \
+  --goal "This product listing page shows products in this fixed reading order: 1) Blue Top, 2) Men Tshirt, 3) Sleeveless Dress, 4) Stylish Dress, 5) Winter Top, 6) Summer White Top, each with its own 'Add to Cart' control in that same order (do not use search or scroll). Click the 3rd 'Add to Cart' element (Sleeveless Dresss) -- do not click the 1st, 2nd, 4th, 5th, or 6th. That click opens an 'Added!' confirmation dialog -- the instant it appears, call finish immediately. Do not click View Cart, do not click Continue Shopping, do not click anything else. Only two actions total: the one click, then finish." \
+  --target-url https://www.automationexercise.com/products \
+  --app-id automationexercise --capability-id automationexercise_add_to_cart_from_listing \
+  --checkpoint-kind text_present --checkpoint-text "Your product has been added to cart." \
+  --headless --run-id portability-ae2
 ```
+
+The third run targets the *listing* page rather than a single product page —
+~34 structurally-identical "Add to Cart" buttons instead of one — which is
+what surfaced bug #4 (silent ambiguous-locator matches) in REPORT.md §4.
 
 ## Running without live services
 
