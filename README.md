@@ -145,6 +145,21 @@ python -m src.cli discover \
 python -m src.cli replay --artifact artifacts/click_canvas_button.json --run-id vision-replay1
 ```
 
+**8. Beyond click/type/navigate** — `select_option`/`hover`/`keypress` cover
+dropdowns, hover-revealed menus, and keyboard-submitted fields (see
+REPORT.md §2). Demonstrated against a real `<select>`:
+
+```bash
+python -m src.cli discover \
+  --goal "This page has a dropdown labeled 'Dropdown List' with options 'Option 1' and 'Option 2'. Select 'Option 2' from it. That single select_option call is the whole task -- immediately after it succeeds, call finish. Only two actions total: the one select_option call, then finish. Do not call select_option more than once." \
+  --target-url https://the-internet.herokuapp.com/dropdown \
+  --app-id the-internet-dropdown --capability-id herokuapp_dropdown \
+  --checkpoint-kind url_pattern --checkpoint-pattern "/dropdown" \
+  --headless --run-id portability-dropdown1
+
+python -m src.cli replay --artifact artifacts/herokuapp_dropdown.json --run-id portability-dropdown1-replay
+```
+
 ## Portability check
 
 The pipeline is not saucedemo-specific. The same code, pointed at two more

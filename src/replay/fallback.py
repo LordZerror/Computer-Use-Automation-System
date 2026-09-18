@@ -104,7 +104,18 @@ def recover(page: Page, step: Step, params: dict[str, str], policy: Policy, logg
         raise HardFailure(step.step_id, "a valid element index from the assisted fallback", f"invalid index {idx}")
 
     element = elements[idx]
-    risk = policy.classify_risk(element["name"])
+    if step.action == "select_option" and not perceive.is_native_select(element):
+        # Same guard as agent/loop.py: a JS-built listbox got recovered
+        # under a step recorded against a real <select> -- Playwright's
+        # .select_option() only works on the real thing.
+        logger.log({"event": "assisted_fallback_not_found", "step_id": step.step_id, "reason": "recovered element is not a native <select>"})
+        raise HardFailure(step.step_id, "a native <select> element", f"recovered element {element['name']!r} has no options (not a <select>)")
+
+    # Same rule agent/loop.py's discovery-time check uses, via the one
+    # shared `classify_action_risk` -- this used to be a separate,
+    # hand-written copy of that logic here, which is exactly how it drifted
+    # out of sync with loop.py's keypress fix the first time around.
+    risk = policy.classify_action_risk(step.action, element["name"], step.value)
     if risk == "risky":
         logger.log({"event": "assisted_fallback_declined_risky", "step_id": step.step_id, "control": element["name"]})
         raise HardFailure(step.step_id, "a safe/allowed recovered element", f"recovered element {element['name']!r} is risky; blocked")
@@ -115,7 +126,13 @@ def recover(page: Page, step: Step, params: dict[str, str], policy: Policy, logg
     elif step.action == "type":
         value = params[step.param_ref] if step.param_ref else step.value
         locator.fill(value or "")
+    elif step.action == "select_option":
+        locator.select_option(label=step.value)
+    elif step.action == "hover":
+        locator.hover()
+    elif step.action == "keypress":
+        locator.press(step.value)
     else:
-        raise HardFailure(step.step_id, "a click or type action", step.action)
+        raise HardFailure(step.step_id, "a known recoverable action type", step.action)
 
     logger.log({"event": "assisted_fallback_recovered", "step_id": step.step_id, "element": element["name"]})

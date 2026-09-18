@@ -14,8 +14,9 @@ Each of up to `max_steps` iterations is **observe → decide → act**:
 2. **Decide** — hand the observation to Groq as a tool-calling turn:
    `llm.decide(...)` for the element list, `llm.decide_vision(...)` for the
    screenshot. The model replies with exactly one tool call: `click`/`type`/
-   `navigate`/`extract` (DOM mode), `click_at`/`type_at` (vision mode, pixel
-   coordinates), or `finish`/`escalate`.
+   `select_option`/`hover`/`keypress`/`navigate`/`extract` (DOM mode),
+   `click_at`/`type_at` (vision mode, pixel coordinates), or
+   `finish`/`escalate`.
 3. **Act** — run that one call against Playwright, append it to the
    `transcript` (the record `recorder.py` later turns into a replayable
    `Capability`), and turn the outcome into a plain-English `history` line
@@ -42,7 +43,7 @@ flowchart TD
     CALL -->|"escalate"| ESC["escalate():\npause for human (manager.py)"]
     ESC --> OBS
 
-    CALL -->|"click / type / navigate / extract\nclick_at / type_at"| POL{"policy: check_domain +\ncheck_action_type"}
+    CALL -->|"click / type / select_option / hover / keypress\nnavigate / extract / click_at / type_at"| POL{"policy: check_domain +\ncheck_action_type"}
     POL -->|"blocked"| HIST["append '[blocked]' to history"]
     HIST --> OBS
 

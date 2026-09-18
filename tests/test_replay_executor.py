@@ -1,10 +1,13 @@
+from types import SimpleNamespace
+
 import pytest
 from playwright.sync_api import sync_playwright
 
 from src.artifact.schema import Checkpoint, LocatorStrategy
 from src.replay.errors import BusinessOutcome, HardFailure, load_error_signatures
-from src.replay.executor import _check_for_app_errors, _verify_checkpoint
+from src.replay.executor import _check_for_app_errors, _execute_step, _verify_checkpoint
 from src.replay.locator import resolve
+from src.safety.policy import load_policy
 
 
 @pytest.fixture(scope="module")
@@ -112,3 +115,80 @@ def test_nonempty_matching_error_container_raises_business_outcome(page):
     sigs = load_error_signatures()
     with pytest.raises(BusinessOutcome):
         _check_for_app_errors(page, sigs)
+
+
+def test_select_option_step_chooses_by_visible_label(page):
+    page.set_content(
+        '<select id="country"><option>USA</option><option>Canada</option><option>UK</option></select>'
+    )
+    step = SimpleNamespace(
+        action="select_option", risk="safe", step_id="s0", value="Canada",
+        locators=[LocatorStrategy(kind="css", css="#country")],
+    )
+    _execute_step(page, step, {}, load_policy())
+    assert page.eval_on_selector("#country", "el => el.selectedOptions[0].text") == "Canada"
+
+
+def test_select_option_step_on_non_select_fails_with_clear_attribution(page):
+    """No perception/element dict exists at replay time (only the recorded
+    locators), so a JS-built listbox can't be caught upfront the way
+    discovery/fallback do -- but Playwright's own exception should still be
+    attributed to this step_id and given a readable message, not left to
+    fall through to replay()'s generic 'unknown step' handler."""
+    page.set_content('<div id="widget" role="combobox">React-select widget</div>')
+    step = SimpleNamespace(
+        action="select_option", risk="safe", step_id="s0", value="Canada",
+        locators=[LocatorStrategy(kind="css", css="#widget")],
+    )
+    with pytest.raises(HardFailure) as exc_info:
+        _execute_step(page, step, {}, load_policy())
+    assert exc_info.value.step_id == "s0"
+
+
+def test_select_option_step_blocked_when_risky(page):
+    page.set_content('<select id="country"><option>USA</option><option>Canada</option></select>')
+    step = SimpleNamespace(
+        action="select_option", risk="risky", step_id="s0", value="Canada",
+        locators=[LocatorStrategy(kind="css", css="#country")],
+    )
+    with pytest.raises(HardFailure):
+        _execute_step(page, step, {}, load_policy())
+
+
+def test_hover_step_reveals_a_hover_triggered_element(page):
+    page.set_content(
+        '<style>#menu{display:none}#trigger:hover + #menu{display:block}</style>'
+        '<div id="trigger">Account</div><div id="menu">Settings</div>'
+    )
+    assert not page.locator("#menu").is_visible()
+    step = SimpleNamespace(
+        action="hover", risk="safe", step_id="s0",
+        locators=[LocatorStrategy(kind="css", css="#trigger")],
+    )
+    _execute_step(page, step, {}, load_policy())
+    assert page.locator("#menu").is_visible()
+
+
+def test_keypress_step_sends_key_to_the_resolved_element(page):
+    page.set_content(
+        '<input id="q"><div id="status"></div>'
+        '<script>document.getElementById("q").addEventListener("keydown", e => {'
+        'if (e.key === "Enter") document.getElementById("status").textContent = "submitted";'
+        '});</script>'
+    )
+    step = SimpleNamespace(
+        action="keypress", risk="safe", step_id="s0", value="Enter",
+        locators=[LocatorStrategy(kind="css", css="#q")],
+    )
+    _execute_step(page, step, {}, load_policy())
+    assert page.locator("#status").inner_text() == "submitted"
+
+
+def test_keypress_step_blocked_when_risky(page):
+    page.set_content('<input id="q">')
+    step = SimpleNamespace(
+        action="keypress", risk="risky", step_id="s0", value="Enter",
+        locators=[LocatorStrategy(kind="css", css="#q")],
+    )
+    with pytest.raises(HardFailure):
+        _execute_step(page, step, {}, load_policy())

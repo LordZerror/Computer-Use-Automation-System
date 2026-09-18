@@ -61,17 +61,24 @@ def cmd_discover(args: argparse.Namespace) -> int:
         for k in params
     ]
     checkpoint = Checkpoint(kind=args.checkpoint_kind, text=args.checkpoint_text, pattern=args.checkpoint_pattern)
-    capability = build_capability(
-        goal=args.goal,
-        base_url=args.target_url,
-        app_id=args.app_id,
-        transcript=result.transcript,
-        input_params=input_params,
-        checkpoint=checkpoint,
-        run_id=run_id,
-        capability_id=args.capability_id,
-        capability_name=args.capability_id,
-    )
+    try:
+        capability = build_capability(
+            goal=args.goal,
+            base_url=args.target_url,
+            app_id=args.app_id,
+            transcript=result.transcript,
+            input_params=input_params,
+            checkpoint=checkpoint,
+            run_id=run_id,
+            capability_id=args.capability_id,
+            capability_name=args.capability_id,
+        )
+    except ValueError as e:
+        # build_capability fails loud on a transcript action it doesn't
+        # recognize (see its own docstring) -- surface that the same clean
+        # way every other discovery failure is reported, not a raw traceback.
+        print(f"Discovery did not complete (run_id={run_id}): {e}", file=sys.stderr)
+        return 1
     path = store.save(capability)
     print(f"Discovery succeeded: {result.summary}")
     print(f"Saved capability artifact -> {path}")

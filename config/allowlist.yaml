@@ -19,6 +19,9 @@ allowed_action_types:
   - type
   - extract
   - finish
+  - select_option
+  - hover
+  - keypress
 
 # A step is classified "risky" (blocked by default, never auto-executed) if the
 # control's visible text/name matches one of these case-insensitive substrings.

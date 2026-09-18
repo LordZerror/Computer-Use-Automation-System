@@ -33,6 +33,35 @@ def test_risky_control_classified_by_text_marker():
     assert policy.classify_risk("Continue") == "safe"
 
 
+def test_classify_action_risk_hover_uses_the_same_text_marker_rule():
+    policy = load_policy()
+    assert policy.classify_action_risk("hover", "Delete Options") == "risky"
+    assert policy.classify_action_risk("hover", "Account") == "safe"
+
+
+def test_classify_action_risk_folds_value_for_select_option():
+    """A neutrally-named dropdown with a risky option must still be caught
+    -- the control's own name alone would miss it."""
+    policy = load_policy()
+    assert policy.classify_action_risk("select_option", "Account Actions", "Delete") == "risky"
+    assert policy.classify_action_risk("select_option", "Account Actions", "View Profile") == "safe"
+
+
+def test_classify_action_risk_folds_value_for_keypress():
+    """Regression: keypress used to classify only the focused element's own
+    name, so e.g. pressing the Delete key on a neutrally-named element was
+    never blocked even though the identical word on a button would be."""
+    policy = load_policy()
+    assert policy.classify_action_risk("keypress", "row-42", "Delete") == "risky"
+    assert policy.classify_action_risk("keypress", "row-42", "Enter") == "safe"
+
+
+def test_classify_action_risk_click_uses_control_name_only():
+    policy = load_policy()
+    assert policy.classify_action_risk("click", "Finish") == "risky"
+    assert policy.classify_action_risk("click", "Continue") == "safe"
+
+
 def test_redact_params_masks_sensitive_values():
     policy = load_policy()
     out = policy.redact_params(

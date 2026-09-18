@@ -38,6 +38,20 @@ _COLLECT_JS = """
     return style.visibility !== 'hidden' && style.display !== 'none';
   }
 
+  function labelTextExcludingControl(labelEl) {
+    // A <label> wrapping its control (<label>Country <select>...</select>
+    // </label>, no `for` needed) has the control's own rendered text as
+    // part of labelEl.innerText -- for a <select> that's every <option>
+    // concatenated, which is exactly the not-a-real-accessible-name problem
+    // accessibleName() below works around for the direct case. Strip any
+    // nested form control out of a clone before reading text so only the
+    // label's own wording comes back, the same fix applied either way a
+    // label can be associated with its control.
+    const clone = labelEl.cloneNode(true);
+    clone.querySelectorAll('select, input, textarea').forEach(c => c.remove());
+    return clone.innerText;
+  }
+
   function associatedLabelText(el) {
     // Standard <label for="id">Text</label> association -- how a screen
     // reader (and a sighted user) actually names a plain form field with no
@@ -45,19 +59,33 @@ _COLLECT_JS = """
     // markup" failure mode Section 3.1 warns against.
     if (el.id) {
       const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
-      if (label) return label.innerText;
+      if (label) return labelTextExcludingControl(label);
     }
-    return el.closest('label')?.innerText || null;
+    const wrapping = el.closest('label');
+    return wrapping ? labelTextExcludingControl(wrapping) : null;
   }
 
-  function accessibleName(el) {
+  function accessibleName(el, isSelect) {
+    // A <select>'s real accessible name (per the browser's own accname
+    // computation, and what Playwright's get_by_role/get_by_text actually
+    // match against) comes from label association only -- neither its
+    // rendered content/current value (innerText/.value -- every <option>'s
+    // text concatenated / the selected option's text) nor `placeholder`/
+    // `alt` (not applicable to <select> at all; verified live: a
+    // placeholder-only <select> gets 0 matches from get_by_role(name=...))
+    // is the real accessible name. `title` is still legitimate (verified:
+    // it does match) so it's the one attribute fallback left unguarded.
+    // Falling through to an empty name here is correct and honest:
+    // recorder.py's _ranked_locators() already skips the role/text
+    // strategies when name is empty, leaving just the (still-usable) css
+    // fallback rather than claiming two dead strategies.
     return (
       el.getAttribute('aria-label') ||
       associatedLabelText(el) ||
-      el.innerText ||
-      el.getAttribute('placeholder') ||
-      el.value ||
-      el.getAttribute('alt') ||
+      (isSelect ? null : el.innerText) ||
+      (isSelect ? null : el.getAttribute('placeholder')) ||
+      (isSelect ? null : el.value) ||
+      (isSelect ? null : el.getAttribute('alt')) ||
       el.getAttribute('title') ||
       ''
     ).trim().slice(0, 60);
@@ -118,12 +146,29 @@ _COLLECT_JS = """
     // test-id'd descendants (header-container, cart-list, ...) -- those
     // descendants are already surfaced individually and are more specific.
     if (!interactive && testId && el.querySelector(testIdSelector)) continue;
+    const isSelect = el.tagName.toLowerCase() === 'select';
     out.push({
       tag: el.tagName.toLowerCase(),
       role: interactive ? role(el) : 'text',
-      name: accessibleName(el),
+      name: accessibleName(el, isSelect),
       test_id: testId,
       css: cssPath(el),
+      // <option> children aren't collected as their own elements (they're
+      // not independently clickable -- you select via the parent), but
+      // select_option needs to know what's actually choosable, so surface
+      // them here on the <select> itself. Capped at 30 *options* -- an
+      // unrelated country/timezone/state picker elsewhere on the page
+      // shouldn't dump hundreds of entries into every perception turn's
+      // prompt -- but NOT per-label truncated the way accessibleName() caps
+      // a name: select_option matches by exact label text, so truncating
+      // an individual option's text would make any option past 60 chars
+      // permanently unselectable. `options_total` (separate from the
+      // possibly-truncated `options` list itself) is what format_for_llm
+      // uses to tell the model more exist rather than silently hiding them
+      // -- a fake "...N more" entry inside `options` risks the model trying
+      // to select that literal string.
+      options: isSelect ? Array.from(el.options).slice(0, 30).map(o => o.text.trim()) : null,
+      options_total: isSelect ? el.options.length : null,
     });
   }
   return out;
@@ -139,11 +184,26 @@ def snapshot(page: Page) -> list[dict]:
     return elements
 
 
+def is_native_select(element: dict) -> bool:
+    """Whether `select_option` is actually usable on this element -- only a
+    real <select> gets an `options` list (see _COLLECT_JS); a JS-built
+    listbox widget shares the same perceived `combobox` role but Playwright's
+    `.select_option()` only operates on the real thing. One shared check
+    (agent/loop.py and replay/fallback.py both call this) instead of two
+    independent copies of `element.get("options") is None`."""
+    return element.get("options") is not None
+
+
 def format_for_llm(elements: list[dict], url: str) -> str:
     lines = [f"URL: {url}", "Interactive elements:"]
     for el in elements:
         marker = f" [test_id={el['test_id']}]" if el["test_id"] else ""
-        lines.append(f"  [{el['index']}] {el['role']} \"{el['name']}\"{marker}")
+        options = ""
+        if el.get("options"):
+            total = el.get("options_total") or len(el["options"])
+            truncated = f" (+{total - len(el['options'])} more not shown)" if total > len(el["options"]) else ""
+            options = f" options={el['options']}{truncated}"
+        lines.append(f"  [{el['index']}] {el['role']} \"{el['name']}\"{marker}{options}")
     return "\n".join(lines)
 
 

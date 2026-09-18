@@ -1,0 +1,4 @@
+{"ts": "2026-09-17T21:07:58.797521+00:00", "event": "replay_start", "capability": "herokuapp_dropdown", "params": {}}
+{"ts": "2026-09-17T21:08:02.793867+00:00", "event": "step_executed", "step_id": "step_0", "action": "select_option", "value": "Option 2"}
+{"ts": "2026-09-17T21:08:03.316735+00:00", "event": "step_executed", "step_id": "step_1", "action": "select_option", "value": "Option 2"}
+{"ts": "2026-09-17T21:08:03.326035+00:00", "event": "replay_success", "outputs": {}}

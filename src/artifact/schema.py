@@ -11,7 +11,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-ActionType = Literal["navigate", "click", "type"]
+ActionType = Literal["navigate", "click", "type", "select_option", "hover", "keypress"]
 LocatorKind = Literal["role", "test_id", "text", "css", "xpath", "coordinates"]
 ParamType = Literal["string", "number", "boolean"]
 RiskLevel = Literal["safe", "risky"]
@@ -71,7 +71,8 @@ class Step(BaseModel):
     step_id: str
     action: ActionType
     locators: list[LocatorStrategy] = Field(default_factory=list)
-    value: Optional[str] = None       # literal (navigate URL, type text)
+    value: Optional[str] = None       # literal (navigate URL, type text, select_option's
+                                       # chosen label, keypress's key name)
     param_ref: Optional[str] = None   # if set, value comes from this input_param at replay time,
                                        # never a literal in the artifact (this is how secrets/PII
                                        # stay out of persisted artifacts -- see InputParam.sensitive)

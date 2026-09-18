@@ -34,6 +34,29 @@ def _locator_from_element(page: Page, element: dict):
     return page.locator(element["css"]).first
 
 
+def _classify_and_block_if_risky(
+    policy, action_name: str, control_label: str, history: list, logger, value: str | None = None,
+) -> str:
+    """Classify risk via `policy.classify_action_risk` (the shared rule
+    replay's assisted fallback also uses) and, if risky, append the standard
+    block message + log the event. Returns the risk level -- caller must
+    `continue` the loop when it comes back "risky" rather than run the
+    action."""
+    risk = policy.classify_action_risk(action_name, control_label, value)
+    if risk == "risky":
+        # Name the value too (not just the control) when there is one, so
+        # e.g. a model told "'Account Actions' choosing 'Delete' is blocked"
+        # can learn a different, safe option on the same control is fine --
+        # "'Account Actions' is blocked" alone gives it no way to know that.
+        detail = f"'{control_label}' (value: {value!r})" if value else f"'{control_label}'"
+        history.append(
+            f"[BLOCKED {action_name} on risky/irreversible control {detail} by policy -- "
+            "do not retry it. If the stated goal is already satisfied, call finish now.]"
+        )
+        logger.log({"event": "policy_blocked_risky", "control": control_label, "value": value})
+    return risk
+
+
 # Vision-mode tool names map onto the same allowlisted action types as their
 # DOM-mode counterparts -- a coordinate click is still a "click" for policy
 # purposes, just located differently.
@@ -148,10 +171,8 @@ def run_discovery(
             try:
                 if call.name == "click_at":
                     x, y, label = call.arguments["x"], call.arguments["y"], call.arguments.get("label", "")
-                    risk = policy.classify_risk(label)
+                    risk = _classify_and_block_if_risky(policy, "click", label, history, logger)
                     if risk == "risky":
-                        history.append(f"[BLOCKED click on risky/irreversible control '{label}' by policy -- do not retry it.]")
-                        logger.log({"event": "policy_blocked_risky", "control": label})
                         continue
                     page.mouse.click(x, y)
                     _settle(page)
@@ -168,7 +189,7 @@ def run_discovery(
                     history.append(f"typed '{text}' at ({x}, {y}) [{label}]")
                     continue
 
-                if call.name in ("click", "type", "extract"):
+                if call.name in ("click", "type", "extract", "select_option", "hover", "keypress"):
                     idx = call.arguments.get("element_index", -1)
                     if not (0 <= idx < len(elements)):
                         history.append(f"[invalid element index {idx}, ignored]")
@@ -178,13 +199,8 @@ def run_discovery(
                     element = None
 
                 if call.name == "click":
-                    risk = policy.classify_risk(element["name"])
+                    risk = _classify_and_block_if_risky(policy, "click", element["name"], history, logger)
                     if risk == "risky":
-                        history.append(
-                            f"[BLOCKED click on risky/irreversible control '{element['name']}' by policy -- "
-                            "do not retry it. If the stated goal is already satisfied, call finish now.]"
-                        )
-                        logger.log({"event": "policy_blocked_risky", "control": element["name"]})
                         continue
                     _locator_from_element(page, element).click()
                     _settle(page)
@@ -202,6 +218,44 @@ def run_discovery(
                     })
                     logged = "***REDACTED***" if param_name in sensitive_params else text
                     history.append(f"typed '{logged}' into [{idx}] {element['name']}")
+
+                elif call.name == "select_option":
+                    value = call.arguments["value"]
+                    if not perceive.is_native_select(element):
+                        # Not a native <select> -- a JS-built listbox widget
+                        # (e.g. <div role="combobox">) gets the same
+                        # "combobox" role in perception but Playwright's
+                        # .select_option() only works on the real thing, and
+                        # would otherwise fail with a generic, confusing
+                        # error instead of this actionable one.
+                        history.append(f"[select_option failed: [{idx}] {element['name']!r} is not a native <select> element (no options detected) -- try click/hover instead]")
+                        continue
+                    risk = _classify_and_block_if_risky(policy, "select_option", element["name"], history, logger, value=value)
+                    if risk == "risky":
+                        continue
+                    _locator_from_element(page, element).select_option(label=value)
+                    _settle(page)
+                    transcript.append({"step_id": step_id, "action": "select_option", "element": element, "value": value, "risk": risk})
+                    history.append(f"selected '{value}' on [{idx}] {element['name']}")
+
+                elif call.name == "hover":
+                    risk = _classify_and_block_if_risky(policy, "hover", element["name"], history, logger)
+                    if risk == "risky":
+                        continue
+                    _locator_from_element(page, element).hover()
+                    _settle(page)
+                    transcript.append({"step_id": step_id, "action": "hover", "element": element, "risk": risk})
+                    history.append(f"hovered [{idx}] {element['role']} \"{element['name']}\"")
+
+                elif call.name == "keypress":
+                    key = call.arguments["key"]
+                    risk = _classify_and_block_if_risky(policy, "keypress", element["name"], history, logger, value=key)
+                    if risk == "risky":
+                        continue
+                    _locator_from_element(page, element).press(key)
+                    _settle(page)
+                    transcript.append({"step_id": step_id, "action": "keypress", "element": element, "value": key, "risk": risk})
+                    history.append(f"pressed '{key}' on [{idx}] {element['name']}")
 
                 elif call.name == "navigate":
                     url = call.arguments["url"]

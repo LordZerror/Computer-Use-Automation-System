@@ -1,0 +1,69 @@
+{
+  "id": "herokuapp_dropdown",
+  "name": "herokuapp_dropdown",
+  "version": "1.0.0",
+  "goal": "This page has a dropdown labeled 'Dropdown List' with options 'Option 1' and 'Option 2'. Select 'Option 2' from it. That single select_option call is the whole task -- immediately after it succeeds, call finish. Only two actions total: the one select_option call, then finish. Do not call select_option more than once.",
+  "target": {
+    "base_url": "https://the-internet.herokuapp.com/dropdown",
+    "app_id": "the-internet-dropdown"
+  },
+  "input_params": [],
+  "steps": [
+    {
+      "step_id": "step_0",
+      "action": "select_option",
+      "locators": [
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "body > div:nth-of-type(2) > div > div > select",
+          "xpath": null,
+          "x": null,
+          "y": null
+        }
+      ],
+      "value": "Option 2",
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via css (structural CSS path, most brittle -- last resort when nothing semantic was available); recorded 1 fallback strategies."
+    },
+    {
+      "step_id": "step_1",
+      "action": "select_option",
+      "locators": [
+        {
+          "kind": "css",
+          "role": null,
+          "name": null,
+          "test_id": null,
+          "text": null,
+          "css": "body > div:nth-of-type(2) > div > div > select",
+          "xpath": null,
+          "x": null,
+          "y": null
+        }
+      ],
+      "value": "Option 2",
+      "param_ref": null,
+      "risk": "safe",
+      "wait_after_ms": 0,
+      "description": "Identified via css (structural CSS path, most brittle -- last resort when nothing semantic was available); recorded 1 fallback strategies."
+    }
+  ],
+  "output_spec": [],
+  "checkpoint": {
+    "kind": "url_pattern",
+    "pattern": "/dropdown",
+    "text": null,
+    "locator": null
+  },
+  "created_from_run_id": "portability-dropdown1",
+  "created_at": "2026-09-17T21:07:42.684699Z",
+  "status": "draft",
+  "stability_score": null,
+  "stability_sample_size": 0
+}

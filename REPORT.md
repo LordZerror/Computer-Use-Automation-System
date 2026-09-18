@@ -15,9 +15,10 @@ Three pipeline stages, each independently testable:
    the way a screen reader would rather than assuming clean markup. `llm.py`
    wraps Groq's OpenAI-compatible tool-calling API — the model sees the goal, a
    manifest of available named parameters, and the current perception list, and
-   must call exactly one tool (`click` / `type` / `navigate` / `extract` /
-   `finish` / `escalate`) per turn. `loop.py` executes that tool call against
-   Playwright and appends a transcript entry.
+   must call exactly one tool (`click` / `type` / `select_option` / `hover` /
+   `keypress` / `navigate` / `extract` / `finish` / `escalate`) per turn.
+   `loop.py` executes that tool call against Playwright and appends a
+   transcript entry.
 2. **Recording** (`src/artifact/recorder.py`): a pure function from transcript
    to `Capability`. It never sees the model's reasoning text or retries — only
    what actually happened and the DOM metadata captured at the moment of each
@@ -92,7 +93,73 @@ artifact, no LLM call).
 `src/artifact/schema.py`. A `Capability` is:
 
 - `input_params`: typed, with a `sensitive` flag.
-- `steps`: ordered `navigate` / `click` / `type` actions. Each carries a
+- `steps`: ordered `navigate` / `click` / `type` / `select_option` / `hover`
+  / `keypress` actions. The first three cover a simple flow; the latter
+  three were added once it became clear that's a ceiling that has nothing to
+  do with vertical (e-commerce vs. anything else) and everything to do with
+  form/wizard richness — no dropdown, hover-revealed menu, or
+  keyboard-submitted field was operable before. All three reuse the exact
+  discovery→transcript→artifact→replay path `click`/`type` already had
+  end to end (`agent/llm.py`'s tool list → `agent/loop.py`'s dispatch →
+  `artifact/recorder.py`'s step-building → `replay/executor.py`'s
+  execution), rather than a parallel mechanism. `select_option` needed one
+  extra piece: `perceive.py` didn't surface a `<select>`'s available
+  `<option>` labels at all, so the vocabulary existed but was unusable —
+  fixed by attaching `options: [...]` to the collected `<select>` element.
+  Explicitly deferred (same shape of gap as §4's "not built" list): file
+  upload, drag-and-drop, new-tab/popup handling, and iframe scoping — each
+  needs page-object-level plumbing (a param type + safety review for a file
+  path; a mutable/switchable `page` reference for tabs and frames), not just
+  another `_execute_step` branch. Verified live, not just argued: discovery
+  against `the-internet.herokuapp.com/dropdown` records a real
+  `select_option` step (`artifacts/herokuapp_dropdown.json`,
+  `evidence/discovery-portability-dropdown1/`), and replaying it lands on
+  the correct option (`evidence/replay-portability-dropdown1-replay/`) —
+  the same "test it" standard §4's portability push holds itself to. Four
+  correctness bugs surfaced by review after the fact, all fixed and covered
+  by tests rather than special-cased: (1) `keypress`'s risk check only
+  looked at the focused element's name, never the key being sent, so
+  e.g. a `Delete` keypress on a neutrally-named element bypassed the same
+  gate an identically-worded click would hit — fixed by folding the key in,
+  same as `select_option` already folded in its chosen value; (2) that
+  fold-in logic was hand-duplicated in both `agent/loop.py` and
+  `replay/fallback.py`, which is exactly how (1) went unfixed in one of the
+  two places — consolidated into one `Policy.classify_action_risk()` both
+  now call; (3) a `<select>` with no `aria-label`/`<label>` had its
+  accessible *name* computed from `innerText` (also reachable via a
+  wrapping `<label>` with no `for`, a second path to the same bug), which
+  concatenates every `<option>`'s text — not what Playwright's
+  `get_by_role`/`get_by_text` actually match, so two of three ranked locator
+  strategies were silently dead for any unlabeled dropdown; fixed by not
+  using `innerText`/`.value` as an accessible-name fallback for `<select>`
+  at all, and by excluding a control's own rendered text when reading a
+  wrapping `<label>`'s text. An empty name is the *correct*, honest answer
+  for herokuapp's unlabeled dropdown (recorder.py already skips role/text
+  strategies when name is empty) — confirmed by regenerating
+  `artifacts/herokuapp_dropdown.json` against the fixed code: it now
+  records exactly one (css) locator strategy instead of three claimed but
+  two silently dead; (4) a JS-built listbox widget
+  (`<div role="combobox">`, common in component libraries) gets the same
+  `combobox` role as a native `<select>` but has no `options=[...]` —
+  `select_option` on one now fails with a clear "not a native `<select>`"
+  message (checked upfront in `loop.py`/`fallback.py`, where perception
+  data is in scope; caught and re-attributed at replay time in
+  `executor.py`, where it isn't) instead of a generic Playwright error.
+  Known limitation, not fixed: `select_option` identifies its target purely
+  by visible option label (`perceive.py`'s `options=[...]`); a `<select>`
+  with two options sharing the same visible text (real, if uncommon — a
+  grouped/boilerplate option set) is silently ambiguous — Playwright's
+  `select_option(label=...)` resolves to the first match with no error, the
+  same class of "wrong silent choice instead of failing loud" gap §4's bug
+  #4 fixed for click locators, but not one `select_option`'s own matching
+  mechanism goes through. Judged not worth fixing in this pass: duplicate
+  option labels within one dropdown are a materially rarer real-world
+  pattern than the repeated-button grid that motivated fixing #4, and a
+  proper fix needs per-call-site DOM introspection (discovery has an
+  `element` dict; replay only has a resolved `Locator`) rather than a
+  small, uniform change — named honestly here instead of silently left
+  looking solved.
+- Every step carries a
   **ranked list of locator strategies** (`test_id → role+accessible-name →
   visible text → CSS path → pixel coordinates`), not a single selector —
   replay tries them in order and only fails if none resolve. This is the
@@ -311,8 +378,9 @@ and replay from the same object:
 
 - **Domain allowlist**: any `navigate`/`goto` outside `allowed_domains` raises
   `PolicyViolation` before it happens.
-- **Action-type allowlist**: only `navigate`/`click`/`type`/`finish` are
-  permitted at all.
+- **Action-type allowlist**: only `navigate`/`click`/`type`/`extract`/
+  `finish`/`select_option`/`hover`/`keypress` are permitted at all
+  (`config/allowlist.yaml`'s `allowed_action_types`).
 - **Risk classification**: a control is `risky` if its visible text matches a
   configured marker (`finish`, `place order`, `pay`, `delete`, …) — chosen
   over an action-type-based rule because on this target the single
@@ -321,7 +389,11 @@ and replay from the same object:
   flagged, both during discovery (the model is told the click was refused) and
   in replay (`HardFailure`) — conservative by design, since this project's
   goal deliberately stops at the checkout *review* page and never needs to
-  cross that line.
+  cross that line. `select_option`, `hover`, and `keypress` are all
+  risk-gated by the same rule (`Policy.classify_action_risk`, §2) — hover
+  can't mutate a page on its own, but there's no reason to carve it out of
+  the one generic text-marker gate everything else goes through, and the
+  cost of not carving it out is one shared code path instead of two.
 - **Redaction**: any input param marked `sensitive` (or whose name matches a
   configured pattern like `password`/`card_number` even if the artifact author
   forgot to flag it) is masked before being written to a log line, and, as

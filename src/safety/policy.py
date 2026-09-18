@@ -15,6 +15,15 @@ import yaml
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "allowlist.yaml"
 REDACTED = "***REDACTED***"
 
+# Every action that resolves and acts on a single element gets a risk
+# classification (Section 3.4) -- one shared constant instead of the same
+# literal tuple hardcoded separately in artifact/recorder.py (which action
+# gets a Step built with a risk field at all) and replay/executor.py (which
+# action's step.risk gets checked before running). This is exactly the kind
+# of duplicated-knowledge drift that let keypress's risk check go unfixed in
+# one of two places the first time around -- see Policy.classify_action_risk.
+RISK_GATED_ACTIONS = frozenset({"click", "select_option", "hover", "keypress"})
+
 
 class PolicyViolation(Exception):
     """An action was blocked by the allowlist. Never caught and retried --
@@ -54,6 +63,27 @@ class Policy:
             return "safe"
         lowered = control_text.lower()
         return "risky" if any(m in lowered for m in self.risky_text_markers) else "safe"
+
+    def classify_action_risk(self, action: str, control_text: str | None, value: str | None = None) -> str:
+        """The one place that decides *what text* gets risk-classified for a
+        given action -- shared by the discovery loop and replay's assisted
+        fallback so the rule can't drift between the two (it already did
+        once: keypress was fixed to fold in its key here, in loop.py, but
+        not in fallback.py's separate copy, until both were pointed at this).
+
+        Every action, `hover` included, classifies by the same
+        risky_text_markers rule -- hover doesn't mutate the page on its own,
+        but a hover-triggered handler on a destructively-named control isn't
+        impossible, and there's no reason to special-case it away from the
+        one generic gate everything else goes through. `select_option`/
+        `keypress` additionally fold `value` (the chosen option / the key
+        sent) into the classified text -- a neutrally-named control can
+        still have a risky option, or send a risky key, that the control's
+        own name alone would never catch.
+        """
+        if action in ("select_option", "keypress") and value:
+            control_text = f"{control_text or ''} {value}".strip()
+        return self.classify_risk(control_text)
 
     def is_sensitive_param(self, name: str, declared_sensitive: bool) -> bool:
         return declared_sensitive or name.lower() in self.sensitive_param_names

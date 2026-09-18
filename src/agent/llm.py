@@ -32,6 +32,10 @@ they change every turn, so never reuse an index from a previous turn.
 - Prefer the most direct path to the goal. Do not click things unrelated to it.
 - Call `extract` when the goal asks you to read/report a value, giving it a \
 short snake_case output_name.
+- Use `select_option` for a dropdown/combobox element (its available choices \
+are listed as options=[...] next to it), `hover` to reveal a hover-triggered \
+menu or tooltip before acting on what it reveals, and `keypress` to send a \
+single key like Enter/Escape/Tab to a focused element.
 - You may be given a set of AVAILABLE PARAMETERS (e.g. form field values). \
 When you type one of those exact values into a field, pass its parameter \
 name as `param_name` on the `type` call so it can be re-supplied on future \
@@ -76,6 +80,48 @@ TOOLS = [
                     },
                 },
                 "required": ["element_index", "text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "select_option",
+            "description": "Choose an option on a dropdown/combobox element by its index.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element_index": {"type": "integer"},
+                    "value": {"type": "string", "description": "the option's visible label, exactly as listed in options=[...]"},
+                },
+                "required": ["element_index", "value"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hover",
+            "description": "Move the pointer onto an element by its index, e.g. to reveal a hover-triggered menu.",
+            "parameters": {
+                "type": "object",
+                "properties": {"element_index": {"type": "integer"}},
+                "required": ["element_index"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "keypress",
+            "description": "Send a single key (e.g. Enter, Escape, Tab) to an element by its index.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element_index": {"type": "integer"},
+                    "key": {"type": "string", "description": "Playwright key name, e.g. Enter, Escape, Tab, ArrowDown"},
+                },
+                "required": ["element_index", "key"],
             },
         },
     },
@@ -186,8 +232,8 @@ VISION_TOOLS = [
             },
         },
     },
-    TOOLS[4],  # finish
-    TOOLS[5],  # escalate
+    next(t for t in TOOLS if t["function"]["name"] == "finish"),
+    next(t for t in TOOLS if t["function"]["name"] == "escalate"),
 ]
 
 

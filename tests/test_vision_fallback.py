@@ -31,6 +31,16 @@ def page(browser):
     p.close()
 
 
+def test_vision_tools_include_finish_and_escalate():
+    """Regression: VISION_TOOLS used to grab finish/escalate out of TOOLS by
+    position (TOOLS[4], TOOLS[5]); adding select_option/hover/keypress to
+    TOOLS shifted those indices and silently handed vision mode keypress/
+    navigate instead -- a vision-mode run could then never call finish or
+    escalate, only ever end via max_steps/timeout."""
+    names = {t["function"]["name"] for t in llm_module.VISION_TOOLS}
+    assert names == {"click_at", "type_at", "finish", "escalate"}
+
+
 def test_canvas_fixture_has_no_perceivable_elements(page):
     """This is the whole reason the fixture exists: it must genuinely force
     the vision fallback to trigger, not just be asserted to."""

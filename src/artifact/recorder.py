@@ -8,6 +8,7 @@ plumbing, or retries.
 from __future__ import annotations
 
 from src.artifact.schema import Capability, Checkpoint, InputParam, LocatorStrategy, OutputSpec, Step, TargetSpec
+from src.safety.policy import RISK_GATED_ACTIONS
 
 _RISK_DESCRIPTIONS = {
     "test_id": "test id is the most stable identifier available",
@@ -86,17 +87,7 @@ def build_capability(
 
         element = t["element"]
         risk = t.get("risk", "safe")
-        if action == "click":
-            steps.append(
-                Step(
-                    step_id=t["step_id"],
-                    action="click",
-                    locators=_ranked_locators(element),
-                    risk=risk,
-                    description=_describe(element),
-                )
-            )
-        elif action == "type":
+        if action == "type":
             param_name = t.get("param_name")
             steps.append(
                 Step(
@@ -108,6 +99,27 @@ def build_capability(
                     description=_describe(element),
                 )
             )
+        elif action in RISK_GATED_ACTIONS:
+            # These share one shape: a resolved element, an optional literal
+            # value (the chosen option / the key name -- click and hover
+            # have none, so t.get("value") is simply absent for them), and
+            # a risk classification already computed by loop.py.
+            steps.append(
+                Step(
+                    step_id=t["step_id"],
+                    action=action,
+                    locators=_ranked_locators(element),
+                    value=t.get("value"),
+                    risk=risk,
+                    description=_describe(element),
+                )
+            )
+        else:
+            # Fail loud, matching replay/executor.py's own "a known action
+            # type" fallback -- a silently-dropped step here would produce
+            # an artifact that's quietly missing an action, discoverable
+            # only by replay doing the wrong thing later.
+            raise ValueError(f"recorder: unrecognized transcript action {action!r} (step {t['step_id']})")
 
     return Capability(
         id=capability_id,

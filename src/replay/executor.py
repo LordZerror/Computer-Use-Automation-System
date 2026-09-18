@@ -17,7 +17,7 @@ from src.evidence.logger import EvidenceLogger
 from src.replay import fallback
 from src.replay.errors import BusinessOutcome, HardFailure, ReplayResult, load_error_signatures
 from src.replay.locator import resolve
-from src.safety.policy import load_policy
+from src.safety.policy import RISK_GATED_ACTIONS, load_policy
 
 
 def _settle(page: Page) -> None:
@@ -181,14 +181,17 @@ def replay(
 
 
 def _execute_step(page: Page, step, params: dict[str, str], policy) -> None:
+    # One check for every action type that carries a risk classification at
+    # all, instead of the same two-line guard repeated in each branch.
+    if step.action in RISK_GATED_ACTIONS and step.risk == "risky":
+        raise HardFailure(step.step_id, "a safe/allowed action", "step is classified risky and blocked by policy")
+
     if step.action == "navigate":
         policy.check_domain(step.value)
         page.goto(step.value)
         return
 
     if step.action == "click":
-        if step.risk == "risky":
-            raise HardFailure(step.step_id, "a safe/allowed action", "step is classified risky and blocked by policy")
         coords = step.locators[0] if step.locators and step.locators[0].kind == "coordinates" else None
         if coords:
             # No DOM node exists for a vision-fallback step -- resolve() has
@@ -206,6 +209,29 @@ def _execute_step(page: Page, step, params: dict[str, str], policy) -> None:
             page.keyboard.type(value or "")
         else:
             resolve(page, step.locators, step.step_id).fill(value or "")
+        return
+
+    if step.action == "select_option":
+        try:
+            resolve(page, step.locators, step.step_id).select_option(label=step.value)
+        except HardFailure:
+            raise
+        except Exception as e:
+            # Could be a JS-built listbox widget (shares the same perceived
+            # "combobox" role as a real <select> but isn't one), a stale
+            # artifact whose option no longer exists, or an actionability
+            # timeout -- Playwright's own error doesn't distinguish, so
+            # don't guess which; just attribute it to this step instead of
+            # falling through to replay()'s top-level "unknown step" handler.
+            raise HardFailure(step.step_id, f"option {step.value!r} selectable on a native <select>", f"select_option failed: {e}")
+        return
+
+    if step.action == "hover":
+        resolve(page, step.locators, step.step_id).hover()
+        return
+
+    if step.action == "keypress":
+        resolve(page, step.locators, step.step_id).press(step.value)
         return
 
     raise HardFailure(step.step_id, "a known action type", step.action)
